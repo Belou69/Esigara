@@ -3,9 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Esigara.mg - E-commerce & Administration Vape</title>
+    <title>Esigara.mg - E-commerce Vape Madagascar</title>
     
-    <!-- Balises Anti-Cache pour forcer la mise à jour instantanée chez les clients -->
+    <!-- Balises Anti-Cache -->
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
@@ -38,7 +38,7 @@
     <script type="text/babel">
         const { useState, useEffect } = React;
 
-        // Clés Supabase
+        // Vos identifiants Supabase actifs
         const SUPABASE_URL = "https://fcagaagjkgwejtnvdzoj.supabase.co";
         const SUPABASE_ANON_KEY = "sb_publishable_oiiGr4O_j3Qs-udNt8if5w_SOPD-VG4";
         const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -66,8 +66,48 @@
             const [searchQuery, setSearchQuery] = useState('');
             const [showCartModal, setShowCartModal] = useState(false);
             const [selectedProductModal, setSelectedProductModal] = useState(null);
-            
-            // Navigation et historique
+            const [isLoading, setIsLoading] = useState(true);
+
+            // Données réelles chargées depuis Supabase
+            const [brands, setBrands] = useState([]);
+            const [categories, setCategories] = useState([]);
+            const [products, setProducts] = useState([]);
+
+            // Charger l'ensemble des données depuis Supabase au démarrage
+            const loadDataFromSupabase = async () => {
+                setIsLoading(true);
+                try {
+                    // Charger les Marques
+                    const { data: bData } = await supabaseClient.from('brands').select('*');
+                    if (bData) setBrands(bData);
+
+                    // Charger les Catégories
+                    const { data: cData } = await supabaseClient.from('categories').select('*');
+                    if (cData) setCategories(cData);
+
+                    // Charger les Produits avec leurs variantes
+                    const { data: pData } = await supabaseClient.from('products').select('*');
+                    const { data: vData } = await supabaseClient.from('variants').select('*');
+
+                    if (pData) {
+                        const fullProducts = pData.map(p => ({
+                            ...p,
+                            variants: (vData || []).filter(v => v.product_id === p.id)
+                        }));
+                        setProducts(fullProducts);
+                    }
+                } catch (err) {
+                    console.error("Erreur de chargement des données Supabase :", err);
+                } finally {
+                    setIsLoading(false);
+                }
+            };
+
+            useEffect(() => {
+                loadDataFromSupabase();
+            }, []);
+
+            // Support du bouton retour physique
             useEffect(() => {
                 const handlePopState = (event) => {
                     if (event.state) {
@@ -115,46 +155,10 @@
                 messengerUrl: 'https://m.me/esigaramg'
             });
 
-            const [brands, setBrands] = useState([
-                { id: 'b1', name: 'Vaporesso', slug: 'vaporesso', description: 'Leader matériel high-tech.', logo_url: 'https://images.unsplash.com/photo-1539185441755-769473a23570?auto=format&fit=crop&w=200&q=80' },
-                { id: 'b2', name: 'Dinner Lady', slug: 'dinner-lady', description: 'E-liquides gourmands.', logo_url: 'https://images.unsplash.com/photo-1527661591475-527312dd65f5?auto=format&fit=crop&w=200&q=80' },
-                { id: 'b3', name: 'Don Cristo', slug: 'don-cristo', description: 'Classiques cubains.', logo_url: 'https://images.unsplash.com/photo-1527661591475-527312dd65f5?auto=format&fit=crop&w=200&q=80' }
-            ]);
-
-            const [categories, setCategories] = useState([
-                { id: 'c1', parent_id: null, name: 'E-Liquides', slug: 'e-liquides', image: 'https://images.unsplash.com/photo-1527661591475-527312dd65f5?auto=format&fit=crop&w=600&q=80' },
-                { id: 'c1_1', parent_id: 'c1', name: 'Fruités & Frais', slug: 'fruites-frais', image: 'https://images.unsplash.com/photo-1557804506-669a67965ba0?auto=format&fit=crop&w=600&q=80' },
-                { id: 'c1_2', parent_id: 'c1', name: 'Gourmands', slug: 'gourmands', image: 'https://images.unsplash.com/photo-1527661591475-527312dd65f5?auto=format&fit=crop&w=600&q=80' },
-                { id: 'c2', parent_id: null, name: 'Cigarettes Électroniques', slug: 'cigarettes-electroniques', image: 'https://images.unsplash.com/photo-1539185441755-769473a23570?auto=format&fit=crop&w=600&q=80' },
-                { id: 'c2_1', parent_id: 'c2', name: 'Pods & Kits', slug: 'pods-kits', image: 'https://images.unsplash.com/photo-1539185441755-769473a23570?auto=format&fit=crop&w=600&q=80' }
-            ]);
-
-            const [products, setProducts] = useState([
-                {
-                    id: 1,
-                    name: 'Vaporesso Luxe XR Max',
-                    brand_id: 'b1',
-                    category_id: 'c2_1',
-                    short_description: 'Pod mod puissant 80W batterie 2800mAh',
-                    box_content: '1x Batterie Luxe XR Max, 1x Pod Luxe XR, 2x Résistances GTX, 1x Câble USB-C',
-                    main_image_url: 'https://images.unsplash.com/photo-1539185441755-769473a23570?auto=format&fit=crop&w=600&q=80',
-                    variants: [{ id: 'v1', price: 185000, stock: 10, nicotine_level: '-', volume_ml: '-', ohm_value: '0.2Ω', color_finish: 'Black', flavor: 'Standard', image_url: '' }]
-                },
-                {
-                    id: 2,
-                    name: 'DIY E-Liquid Custom',
-                    brand_id: 'b2',
-                    category_id: 'c1_1',
-                    short_description: 'E-liquide DIY calculé par volume et nicotine',
-                    box_content: '1x Flacon personnalisé selon volume et taux de nicotine',
-                    main_image_url: 'https://images.unsplash.com/photo-1527661591475-527312dd65f5?auto=format&fit=crop&w=600&q=80',
-                    variants: [{ id: 'v2', price: 25000, stock: 50, nicotine_level: '3mg', volume_ml: '10ml', ohm_value: '-', color_finish: '-', flavor: 'Fruits Rouges', image_url: '' }]
-                }
-            ]);
-
+            // Formulaires d'administration
             const [editingProductId, setEditingProductId] = useState(null);
             const [newProduct, setNewProduct] = useState({
-                name: '', brand_id: 'b1', category_id: 'c1', short_description: '', box_content: '', main_image_url: 'https://images.unsplash.com/photo-1539185441755-769473a23570?auto=format&fit=crop&w=600&q=80'
+                name: '', brand_id: '', category_id: '', short_description: '', box_content: '', main_image_url: 'https://images.unsplash.com/photo-1539185441755-769473a23570?auto=format&fit=crop&w=600&q=80'
             });
             const [variantsList, setVariantsList] = useState([
                 { id: 'var_1', price: '', stock: '10', nicotine_level: '0mg', volume_ml: '10ml', ohm_value: '-', color_finish: '-', flavor: 'Classic', image_url: '' }
@@ -266,12 +270,35 @@
                 setVariantsList(variantsList.map(v => v.id === id ? { ...v, [field]: value } : v));
             };
 
-            const handleSaveProduct = (e) => {
+            // Enregistrement permanent d'un produit dans Supabase
+            const handleSaveProduct = async (e) => {
                 e.preventDefault();
                 if (!newProduct.name || variantsList.some(v => !v.price)) return alert('Veuillez remplir le nom et le prix de chaque déclinaison.');
-                
-                const formattedVariants = variantsList.map(v => ({
-                    id: v.id.startsWith('var_') ? 'v_' + Math.random() : v.id,
+
+                const productId = editingProductId || Date.now();
+
+                // 1. Sauvegarder le Produit
+                const { error: pError } = await supabaseClient.from('products').upsert([{
+                    id: productId,
+                    name: newProduct.name,
+                    brand_id: newProduct.brand_id || null,
+                    category_id: newProduct.category_id || null,
+                    short_description: newProduct.short_description,
+                    box_content: newProduct.box_content,
+                    main_image_url: newProduct.main_image_url
+                }]);
+
+                if (pError) return alert('Erreur enregistrement produit : ' + pError.message);
+
+                // 2. Supprimer les anciennes variantes si mise à jour
+                if (editingProductId) {
+                    await supabaseClient.from('variants').delete().eq('product_id', productId);
+                }
+
+                // 3. Insérer les déclinaisons
+                const formattedVariants = variantsList.map((v, i) => ({
+                    id: 'var_' + productId + '_' + i,
+                    product_id: productId,
                     price: parseFloat(v.price),
                     stock: parseInt(v.stock) || 10,
                     nicotine_level: v.nicotine_level,
@@ -282,45 +309,24 @@
                     image_url: v.image_url
                 }));
 
-                if (editingProductId) {
-                    setProducts(products.map(p => p.id === editingProductId ? {
-                        ...p,
-                        name: newProduct.name,
-                        brand_id: newProduct.brand_id,
-                        category_id: newProduct.category_id,
-                        short_description: newProduct.short_description,
-                        box_content: newProduct.box_content,
-                        main_image_url: newProduct.main_image_url,
-                        variants: formattedVariants
-                    } : p));
-                    setEditingProductId(null);
-                    alert('Produit modifié avec succès !');
-                } else {
-                    const productEntry = {
-                        id: Date.now(),
-                        name: newProduct.name,
-                        brand_id: newProduct.brand_id,
-                        category_id: newProduct.category_id,
-                        short_description: newProduct.short_description,
-                        box_content: newProduct.box_content,
-                        main_image_url: newProduct.main_image_url,
-                        variants: formattedVariants
-                    };
-                    setProducts([productEntry, ...products]);
-                    alert('Produit et ses déclinaisons enregistrés avec succès !');
-                }
+                const { error: vError } = await supabaseClient.from('variants').insert(formattedVariants);
 
-                setNewProduct({ name: '', brand_id: brands[0]?.id || '', category_id: categories[0]?.id || '', short_description: '', box_content: '', main_image_url: 'https://images.unsplash.com/photo-1539185441755-769473a23570?auto=format&fit=crop&w=600&q=80' });
+                if (vError) return alert('Erreur enregistrement variantes : ' + vError.message);
+
+                alert(editingProductId ? 'Produit mis à jour dans Supabase !' : 'Produit enregistré en base de données !');
+                setEditingProductId(null);
+                setNewProduct({ name: '', brand_id: '', category_id: '', short_description: '', box_content: '', main_image_url: 'https://images.unsplash.com/photo-1539185441755-769473a23570?auto=format&fit=crop&w=600&q=80' });
                 setVariantsList([{ id: 'var_1', price: '', stock: '10', nicotine_level: '0mg', volume_ml: '10ml', ohm_value: '-', color_finish: '-', flavor: 'Classic', image_url: '' }]);
                 setIsDiyCalculatorActive(false);
+                loadDataFromSupabase();
             };
 
             const startEditProduct = (prod) => {
                 setEditingProductId(prod.id);
                 setNewProduct({
                     name: prod.name,
-                    brand_id: prod.brand_id,
-                    category_id: prod.category_id,
+                    brand_id: prod.brand_id || '',
+                    category_id: prod.category_id || '',
                     short_description: prod.short_description,
                     box_content: prod.box_content || '',
                     main_image_url: prod.main_image_url
@@ -338,43 +344,63 @@
                 })));
             };
 
-            const deleteProduct = (id) => {
-                if (confirm('Voulez-vous supprimer ce produit du catalogue ?')) {
-                    setProducts(products.filter(p => p.id !== id));
+            const deleteProduct = async (id) => {
+                if (confirm('Voulez-vous vraiment supprimer ce produit de la base de données ?')) {
+                    await supabaseClient.from('products').delete().eq('id', id);
+                    loadDataFromSupabase();
                 }
             };
 
-            const handleAddBrand = (e) => {
+            // Enregistrement permanent des marques
+            const handleAddBrand = async (e) => {
                 e.preventDefault();
                 if (!newBrandName) return;
-                setBrands([...brands, { id: 'b_' + Date.now(), name: newBrandName, slug: newBrandName.toLowerCase().replace(/\s+/g, '-'), description: newBrandDesc, logo_url: newBrandLogo }]);
+                const brandObj = {
+                    id: 'b_' + Date.now(),
+                    name: newBrandName,
+                    slug: newBrandName.toLowerCase().replace(/\s+/g, '-'),
+                    description: newBrandDesc,
+                    logo_url: newBrandLogo
+                };
+                const { error } = await supabaseClient.from('brands').insert([brandObj]);
+                if (error) return alert('Erreur : ' + error.message);
+                
                 setNewBrandName(''); 
                 setNewBrandDesc('');
                 setNewBrandLogo('https://images.unsplash.com/photo-1539185441755-769473a23570?auto=format&fit=crop&w=200&q=80');
-                alert('Marque ajoutée avec succès !');
+                alert('Marque sauvegardée sur Supabase !');
+                loadDataFromSupabase();
             };
 
-            const deleteBrand = (id) => {
+            const deleteBrand = async (id) => {
                 if (confirm('Voulez-vous vraiment supprimer cette marque ?')) {
-                    setBrands(brands.filter(b => b.id !== id));
+                    await supabaseClient.from('brands').delete().eq('id', id);
+                    loadDataFromSupabase();
                 }
             };
 
-            const handleSaveCategory = (e) => {
+            // Enregistrement permanent des rubriques
+            const handleSaveCategory = async (e) => {
                 e.preventDefault();
                 if (!newCatName) return;
 
-                if (editingCatId) {
-                    setCategories(categories.map(c => c.id === editingCatId ? { ...c, name: newCatName, parent_id: newCatParent === '' ? null : newCatParent, image: newCatImage } : c));
-                    setEditingCatId(null);
-                    alert('Rubrique modifiée avec succès !');
-                } else {
-                    setCategories([...categories, { id: 'c_' + Date.now(), parent_id: newCatParent === '' ? null : newCatParent, name: newCatName, slug: newCatName.toLowerCase().replace(/\s+/g, '-'), image: newCatImage }]);
-                    alert('Rubrique créée avec succès !');
-                }
+                const catObj = {
+                    id: editingCatId || ('c_' + Date.now()),
+                    parent_id: newCatParent === '' ? null : newCatParent,
+                    name: newCatName,
+                    slug: newCatName.toLowerCase().replace(/\s+/g, '-'),
+                    image: newCatImage
+                };
+
+                const { error } = await supabaseClient.from('categories').upsert([catObj]);
+                if (error) return alert('Erreur : ' + error.message);
+
+                setEditingCatId(null);
                 setNewCatName('');
                 setNewCatParent('');
                 setNewCatImage('https://images.unsplash.com/photo-1527661591475-527312dd65f5?auto=format&fit=crop&w=600&q=80');
+                alert('Rubrique enregistrée sur Supabase !');
+                loadDataFromSupabase();
             };
 
             const startEditCategory = (cat) => {
@@ -384,9 +410,10 @@
                 setNewCatImage(cat.image);
             };
 
-            const deleteCategory = (id) => {
-                if (confirm('Voulez-vous vraiment supprimer cette rubrique ? Les sous-rubriques rattachées seront également supprimées.')) {
-                    setCategories(categories.filter(c => c.id !== id && c.parent_id !== id));
+            const deleteCategory = async (id) => {
+                if (confirm('Voulez-vous supprimer cette rubrique ?')) {
+                    await supabaseClient.from('categories').delete().eq('id', id);
+                    loadDataFromSupabase();
                 }
             };
 
@@ -394,7 +421,7 @@
                 const qty = qtyOverride !== null ? qtyOverride : (parseInt(quantityByProduct[product.id]) || 1);
                 
                 if (variant.stock < qty) {
-                    return alert(`Stock insuffisant ! Il ne reste que ${variant.stock} exemplaire(s) de cette déclinaison.`);
+                    return alert(`Stock insuffisant ! Il ne reste que ${variant.stock} exemplaire(s).`);
                 }
 
                 const existingIndex = cart.findIndex(item => item.id === product.id && item.selectedVariant.id === variant.id);
@@ -402,7 +429,7 @@
                 if (existingIndex > -1) {
                     const updated = [...cart];
                     if (variant.stock < updated[existingIndex].quantity + qty) {
-                        return alert(`Stock insuffisant pour ajouter ${qty} de plus. Stock disponible : ${variant.stock}.`);
+                        return alert(`Stock insuffisant pour ajouter ${qty} de plus.`);
                     }
                     updated[existingIndex].quantity += qty;
                     setCart(updated);
@@ -412,25 +439,18 @@
                 setShowCartModal(true);
             };
 
-            const processOrderStockReduction = () => {
-                let updatedProducts = products.map(prod => {
-                    let updatedVariants = prod.variants.map(v => {
-                        const cartItem = cart.find(ci => ci.id === prod.id && ci.selectedVariant.id === v.id);
-                        if (cartItem) {
-                            const newStock = Math.max(0, v.stock - cartItem.quantity);
-                            return { ...v, stock: newStock };
-                        }
-                        return v;
-                    });
-                    return { ...prod, variants: updatedVariants };
-                });
-                setProducts(updatedProducts);
+            const processOrderStockReduction = async () => {
+                for (const item of cart) {
+                    const newStock = Math.max(0, item.selectedVariant.stock - item.quantity);
+                    await supabaseClient.from('variants').update({ stock: newStock }).eq('id', item.selectedVariant.id);
+                }
+                loadDataFromSupabase();
             };
 
             const cartTotal = cart.reduce((sum, item) => sum + (item.selectedVariant.price * item.quantity), 0);
 
-            const checkoutWhatsApp = () => {
-                processOrderStockReduction();
+            const checkoutWhatsApp = async () => {
+                await processOrderStockReduction();
                 let text = `${settings.whatsappMessage}%0A`;
                 cart.forEach((item) => {
                     text += `- ${item.name} (${item.quantity}x) [Saveur: ${item.selectedVariant.flavor} | ${item.selectedVariant.volume_ml} | Nic: ${item.selectedVariant.nicotine_level}] - ${(item.selectedVariant.price * item.quantity).toLocaleString()} Ar%0A`;
@@ -440,8 +460,8 @@
                 setCart([]);
             };
 
-            const checkoutMessenger = () => {
-                processOrderStockReduction();
+            const checkoutMessenger = async () => {
+                await processOrderStockReduction();
                 window.open(settings.messengerUrl, '_blank');
                 setCart([]);
             };
@@ -554,238 +574,253 @@
                     </header>
 
                     <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8">
-                        {currentView === 'home' && (
-                            <div className="space-y-12 py-6">
-                                <div className="text-center max-w-2xl mx-auto space-y-2">
-                                    <h1 className="text-3xl font-black text-slate-100 tracking-tight">Bienvenue sur Esigara.mg</h1>
-                                    <p className="text-sm text-slate-400">Trouvez instantanément votre matériel, e-liquide ou saveur préférée via la recherche ou le catalogue.</p>
-                                </div>
+                        {isLoading ? (
+                            <div className="text-center py-20 space-y-3">
+                                <div className="w-10 h-10 border-4 border-teal-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
+                                <p className="text-xs text-slate-400">Connexion à Supabase...</p>
+                            </div>
+                        ) : (
+                            <>
+                                {currentView === 'home' && (
+                                    <div className="space-y-12 py-6">
+                                        <div className="text-center max-w-2xl mx-auto space-y-2">
+                                            <h1 className="text-3xl font-black text-slate-100 tracking-tight">Bienvenue sur Esigara.mg</h1>
+                                            <p className="text-sm text-slate-400">Trouvez instantanément votre matériel, e-liquide ou saveur préférée.</p>
+                                        </div>
 
-                                <div className="space-y-4">
-                                    <h2 className="text-sm font-extrabold uppercase tracking-wider text-teal-400">Rubriques Principales</h2>
-                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6">
-                                        {categories.filter(c => !c.parent_id).map(cat => {
-                                            const subcategories = categories.filter(sub => sub.parent_id === cat.id);
-                                            return (
-                                                <div key={cat.id} className="bg-slate-900/90 border border-slate-800/80 rounded-3xl overflow-hidden shadow-xl flex flex-col justify-between hover:border-teal-500/50 transition duration-300 group">
-                                                    <div className="relative h-36 sm:h-44 overflow-hidden bg-slate-950 cursor-pointer" onClick={() => navigateTo('category', cat.id, null)}>
-                                                        <img src={cat.image} alt={cat.name} className="w-full h-full object-cover group-hover:scale-105 transition duration-500 opacity-80 group-hover:opacity-100" />
-                                                        <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/20 to-transparent"></div>
-                                                        <h3 className="absolute bottom-3 left-3 font-black text-sm sm:text-base text-white">{cat.name}</h3>
-                                                    </div>
-                                                    <div className="p-3 sm:p-4 space-y-2">
-                                                        {subcategories.length > 0 && (
-                                                            <div className="flex flex-wrap gap-1 mb-2">
-                                                                {subcategories.map(sub => (
-                                                                    <button key={sub.id} onClick={() => navigateTo('category', sub.id, null)} className="text-[10px] bg-slate-950 border border-slate-800 px-2 py-0.5 rounded-lg text-teal-400 hover:bg-teal-500 hover:text-slate-950 font-semibold transition">
-                                                                        {sub.name}
+                                        <div className="space-y-4">
+                                            <h2 className="text-sm font-extrabold uppercase tracking-wider text-teal-400">Rubriques Principales</h2>
+                                            {categories.length === 0 ? (
+                                                <p className="text-xs text-slate-500">Aucune rubrique créée pour le moment.</p>
+                                            ) : (
+                                                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6">
+                                                    {categories.filter(c => !c.parent_id).map(cat => {
+                                                        const subcategories = categories.filter(sub => sub.parent_id === cat.id);
+                                                        return (
+                                                            <div key={cat.id} className="bg-slate-900/90 border border-slate-800/80 rounded-3xl overflow-hidden shadow-xl flex flex-col justify-between hover:border-teal-500/50 transition duration-300 group">
+                                                                <div className="relative h-36 sm:h-44 overflow-hidden bg-slate-950 cursor-pointer" onClick={() => navigateTo('category', cat.id, null)}>
+                                                                    <img src={cat.image} alt={cat.name} className="w-full h-full object-cover group-hover:scale-105 transition duration-500 opacity-80 group-hover:opacity-100" />
+                                                                    <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/20 to-transparent"></div>
+                                                                    <h3 className="absolute bottom-3 left-3 font-black text-sm sm:text-base text-white">{cat.name}</h3>
+                                                                </div>
+                                                                <div className="p-3 sm:p-4 space-y-2">
+                                                                    {subcategories.length > 0 && (
+                                                                        <div className="flex flex-wrap gap-1 mb-2">
+                                                                            {subcategories.map(sub => (
+                                                                                <button key={sub.id} onClick={() => navigateTo('category', sub.id, null)} className="text-[10px] bg-slate-950 border border-slate-800 px-2 py-0.5 rounded-lg text-teal-400 hover:bg-teal-500 hover:text-slate-950 font-semibold transition">
+                                                                                    {sub.name}
+                                                                                </button>
+                                                                            ))}
+                                                                        </div>
+                                                                    )}
+                                                                    <button onClick={() => navigateTo('category', cat.id, null)} className="w-full py-2 bg-slate-950 hover:bg-teal-500 hover:text-slate-950 border border-slate-800 rounded-xl text-[11px] font-bold transition flex items-center justify-center space-x-1">
+                                                                        <span>Explorer</span>
+                                                                        <span>&rarr;</span>
                                                                     </button>
-                                                                ))}
-                                                            </div>
-                                                        )}
-                                                        <button onClick={() => navigateTo('category', cat.id, null)} className="w-full py-2 bg-slate-950 hover:bg-teal-500 hover:text-slate-950 border border-slate-800 rounded-xl text-[11px] font-bold transition flex items-center justify-center space-x-1">
-                                                            <span>Explorer</span>
-                                                            <span>&rarr;</span>
-                                                        </button>
-                                                    </div>
-                                                </div>
-                                            );
-                                        })}
-                                    </div>
-                                </div>
-
-                                <div className="space-y-4 pt-6 border-t border-slate-800">
-                                    <h2 className="text-sm font-extrabold uppercase tracking-wider text-teal-400">Explorer par Marque</h2>
-                                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-                                        {brands.map(b => {
-                                            const count = products.filter(p => p.brand_id === b.id).length;
-                                            return (
-                                                <div 
-                                                    key={b.id} 
-                                                    onClick={() => navigateTo('brand', null, b.id)}
-                                                    className="bg-slate-900/90 border border-slate-800 p-5 rounded-3xl flex flex-col items-center text-center cursor-pointer hover:border-teal-500 transition group">
-                                                    <img src={b.logo_url} alt={b.name} className="w-16 h-16 object-cover rounded-2xl border border-slate-800 mb-3 group-hover:scale-105 transition" />
-                                                    <h3 className="font-bold text-sm text-slate-100 group-hover:text-teal-400 transition">{b.name}</h3>
-                                                    <p className="text-[11px] text-slate-400 mt-1">{count} produit(s)</p>
-                                                </div>
-                                            );
-                                        })}
-                                    </div>
-                                </div>
-                            </div>
-                        )}
-
-                        {currentView === 'search' && (
-                            <div className="space-y-8">
-                                <div className="border-b border-slate-800 pb-4">
-                                    <h2 className="text-2xl font-black text-slate-100">Résultats de recherche</h2>
-                                    <p className="text-xs text-teal-400 mt-1">Recherche associée : "{searchQuery}" ({searchResults.length} résultat(s) trouvé(s))</p>
-                                </div>
-
-                                {searchResults.length === 0 ? (
-                                    <div className="text-center py-16 space-y-3 bg-slate-900/40 rounded-3xl border border-slate-800">
-                                        <p className="text-sm text-slate-400">Aucun produit ne correspond à votre recherche.</p>
-                                        <button onClick={() => navigateTo('home')} className="px-4 py-2 bg-teal-500 text-slate-950 font-bold text-xs rounded-xl">Retour à l'accueil</button>
-                                    </div>
-                                ) : (
-                                    <div className="grid grid-cols-2 gap-4 sm:gap-6">
-                                        {searchResults.map(product => {
-                                            const brand = brands.find(b => b.id === product.brand_id);
-                                            const selectedVarId = selectedVariantByProduct[product.id] || product.variants[0]?.id;
-                                            const currentVariant = product.variants.find(v => v.id === selectedVarId) || product.variants[0];
-                                            const displayImage = currentVariant?.image_url || product.main_image_url;
-                                            const currentQty = quantityByProduct[product.id] || 1;
-
-                                            return (
-                                                <div key={product.id} className="bg-slate-900/90 border border-slate-800/80 rounded-3xl overflow-hidden shadow-xl flex flex-col justify-between group hover:border-teal-500/60 transition duration-300">
-                                                    <div>
-                                                        <div className="relative h-36 sm:h-48 overflow-hidden bg-slate-950 cursor-pointer" onClick={() => setSelectedProductModal(product)}>
-                                                            <img src={displayImage} alt={product.name} className="w-full h-full object-cover group-hover:scale-105 transition duration-500" />
-                                                            {brand && <span className="absolute top-2 left-2 bg-slate-950/80 backdrop-blur-md text-teal-400 text-[9px] sm:text-[10px] uppercase font-extrabold px-2 py-0.5 rounded-full border border-slate-800">{brand.name}</span>}
-                                                        </div>
-                                                        <div className="p-3 sm:p-5 space-y-2">
-                                                            <h3 className="font-bold text-xs sm:text-base text-slate-100 cursor-pointer hover:text-teal-400 transition" onClick={() => setSelectedProductModal(product)}>{product.name}</h3>
-                                                            <p className="text-[11px] sm:text-xs text-slate-400 line-clamp-2 leading-relaxed">{product.short_description}</p>
-                                                            <p className="text-[10px] font-bold text-slate-500">Stock dispo : <span className={currentVariant.stock > 0 ? "text-emerald-400" : "text-rose-400"}>{currentVariant.stock}</span></p>
-                                                        </div>
-                                                    </div>
-                                                    <div className="p-3 sm:p-5 pt-0 space-y-3 border-t border-slate-800/60 mt-2">
-                                                        <div className="flex items-center justify-between">
-                                                            <span className="font-black text-teal-400 text-xs sm:text-base">{(currentVariant.price * currentQty).toLocaleString()} Ar</span>
-                                                            <div className="flex items-center space-x-1 sm:space-x-1.5">
-                                                                <button onClick={() => setQuantityByProduct({...quantityByProduct, [product.id]: Math.max(1, currentQty - 1)})} className="w-6 h-6 sm:w-7 sm:h-7 bg-slate-950 border border-slate-800 rounded-lg text-xs font-bold">-</button>
-                                                                <span className="text-xs font-bold text-teal-400 px-1">{currentQty}</span>
-                                                                <button onClick={() => setQuantityByProduct({...quantityByProduct, [product.id]: currentQty + 1})} className="w-6 h-6 sm:w-7 sm:h-7 bg-slate-950 border border-slate-800 rounded-lg text-xs font-bold">+</button>
-                                                            </div>
-                                                        </div>
-                                                        <div className="grid grid-cols-2 gap-1.5">
-                                                            <button onClick={() => setSelectedProductModal(product)} className="w-full py-2 bg-slate-950 hover:bg-slate-800 border border-slate-800 text-slate-300 rounded-xl text-[10px] sm:text-xs font-bold transition">
-                                                                Détails
-                                                            </button>
-                                                            <button onClick={() => addToCart(product, currentVariant, currentQty)} className="w-full py-2 bg-teal-500 hover:bg-teal-400 text-slate-950 rounded-xl text-[10px] sm:text-xs font-bold transition shadow-md shadow-teal-500/20 active:scale-95">
-                                                                Ajouter
-                                                            </button>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            );
-                                        })}
-                                    </div>
-                                )}
-                            </div>
-                        )}
-
-                        {currentView === 'category' && (
-                            <div className="space-y-8">
-                                <div className="border-b border-slate-800 pb-4">
-                                    <h2 className="text-2xl font-black text-slate-100">{activeCategory ? activeCategory.name : 'Catalogue'}</h2>
-                                    <p className="text-xs text-slate-400 mt-1">Découvrez l'ensemble des articles de cette rubrique.</p>
-                                </div>
-
-                                <div className="space-y-10">
-                                    <div className="grid grid-cols-2 gap-4 sm:gap-6">
-                                        {products
-                                            .filter(p => p.category_id === selectedCategoryId || categories.find(c => c.id === p.category_id)?.parent_id === selectedCategoryId)
-                                            .map(product => {
-                                                const brand = brands.find(b => b.id === product.brand_id);
-                                                const selectedVarId = selectedVariantByProduct[product.id] || product.variants[0]?.id;
-                                                const currentVariant = product.variants.find(v => v.id === selectedVarId) || product.variants[0];
-                                                const displayImage = currentVariant?.image_url || product.main_image_url;
-                                                const currentQty = quantityByProduct[product.id] || 1;
-
-                                                return (
-                                                    <div key={product.id} className="bg-slate-900/90 border border-slate-800/80 rounded-3xl overflow-hidden shadow-xl flex flex-col justify-between group hover:border-teal-500/60 transition duration-300">
-                                                        <div>
-                                                            <div className="relative h-36 sm:h-48 overflow-hidden bg-slate-950 cursor-pointer" onClick={() => setSelectedProductModal(product)}>
-                                                                <img src={displayImage} alt={product.name} className="w-full h-full object-cover group-hover:scale-105 transition duration-500" />
-                                                                {brand && <span className="absolute top-2 left-2 bg-slate-950/80 backdrop-blur-md text-teal-400 text-[9px] sm:text-[10px] uppercase font-extrabold px-2 py-0.5 rounded-full border border-slate-800">{brand.name}</span>}
-                                                            </div>
-                                                            <div className="p-3 sm:p-5 space-y-2">
-                                                                <h3 className="font-bold text-xs sm:text-base text-slate-100 cursor-pointer hover:text-teal-400 transition" onClick={() => setSelectedProductModal(product)}>{product.name}</h3>
-                                                                <p className="text-[11px] sm:text-xs text-slate-400 line-clamp-2 leading-relaxed">{product.short_description}</p>
-                                                                <p className="text-[10px] font-bold text-slate-500">Stock dispo : <span className={currentVariant.stock > 0 ? "text-emerald-400" : "text-rose-400"}>{currentVariant.stock}</span></p>
-                                                            </div>
-                                                        </div>
-                                                        <div className="p-3 sm:p-5 pt-0 space-y-3 border-t border-slate-800/60 mt-2">
-                                                            <div className="flex items-center justify-between">
-                                                                <span className="font-black text-teal-400 text-xs sm:text-base">{(currentVariant.price * currentQty).toLocaleString()} Ar</span>
-                                                                <div className="flex items-center space-x-1 sm:space-x-1.5">
-                                                                    <button onClick={() => setQuantityByProduct({...quantityByProduct, [product.id]: Math.max(1, currentQty - 1)})} className="w-6 h-6 sm:w-7 sm:h-7 bg-slate-950 border border-slate-800 rounded-lg text-xs font-bold">-</button>
-                                                                    <span className="text-xs font-bold text-teal-400 px-1">{currentQty}</span>
-                                                                    <button onClick={() => setQuantityByProduct({...quantityByProduct, [product.id]: currentQty + 1})} className="w-6 h-6 sm:w-7 sm:h-7 bg-slate-950 border border-slate-800 rounded-lg text-xs font-bold">+</button>
                                                                 </div>
                                                             </div>
-                                                            <div className="grid grid-cols-2 gap-1.5">
-                                                                <button onClick={() => setSelectedProductModal(product)} className="w-full py-2 bg-slate-950 hover:bg-slate-800 border border-slate-800 text-slate-300 rounded-xl text-[10px] sm:text-xs font-bold transition">
-                                                                    Détails
-                                                                </button>
-                                                                <button onClick={() => addToCart(product, currentVariant, currentQty)} className="w-full py-2 bg-teal-500 hover:bg-teal-400 text-slate-950 rounded-xl text-[10px] sm:text-xs font-bold transition shadow-md shadow-teal-500/20 active:scale-95">
-                                                                    Ajouter
-                                                                </button>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                );
-                                            })}
-                                    </div>
-                                </div>
-                            </div>
-                        )}
-
-                        {currentView === 'brand' && (
-                            <div className="space-y-8">
-                                <div className="border-b border-slate-800 pb-4 flex items-center space-x-4">
-                                    {activeBrand && <img src={activeBrand.logo_url} alt={activeBrand.name} className="w-14 h-14 object-cover rounded-2xl border border-slate-800" />}
-                                    <div>
-                                        <h2 className="text-2xl font-black text-slate-100">{activeBrand ? activeBrand.name : 'Marque'}</h2>
-                                        <p className="text-xs text-slate-400 mt-1">{activeBrand?.description || 'Tous les produits de cette marque.'}</p>
-                                    </div>
-                                </div>
-
-                                <div className="grid grid-cols-2 gap-4 sm:gap-6">
-                                    {products
-                                        .filter(p => p.brand_id === selectedBrandId)
-                                        .map(product => {
-                                            const selectedVarId = selectedVariantByProduct[product.id] || product.variants[0]?.id;
-                                            const currentVariant = product.variants.find(v => v.id === selectedVarId) || product.variants[0];
-                                            const displayImage = currentVariant?.image_url || product.main_image_url;
-                                            const currentQty = quantityByProduct[product.id] || 1;
-
-                                            return (
-                                                <div key={product.id} className="bg-slate-900/90 border border-slate-800/80 rounded-3xl overflow-hidden shadow-xl flex flex-col justify-between group">
-                                                    <div>
-                                                        <div className="relative h-36 sm:h-48 overflow-hidden bg-slate-950 cursor-pointer" onClick={() => setSelectedProductModal(product)}>
-                                                            <img src={displayImage} alt={product.name} className="w-full h-full object-cover group-hover:scale-105 transition duration-500" />
-                                                        </div>
-                                                        <div className="p-3 sm:p-5 space-y-2">
-                                                            <h3 className="font-bold text-xs sm:text-base text-slate-100 cursor-pointer hover:text-teal-400" onClick={() => setSelectedProductModal(product)}>{product.name}</h3>
-                                                            <p className="text-[11px] sm:text-xs text-slate-400 line-clamp-2">{product.short_description}</p>
-                                                            <p className="text-[10px] font-bold text-slate-500">Stock dispo : <span className={currentVariant.stock > 0 ? "text-emerald-400" : "text-rose-400"}>{currentVariant.stock}</span></p>
-                                                        </div>
-                                                    </div>
-                                                    <div className="p-3 sm:p-5 pt-0 space-y-3 border-t border-slate-800/60 mt-2">
-                                                        <div className="flex items-center justify-between">
-                                                            <span className="font-black text-teal-400 text-xs sm:text-base">{(currentVariant.price * currentQty).toLocaleString()} Ar</span>
-                                                            <div className="flex items-center space-x-1 sm:space-x-1.5">
-                                                                <button onClick={() => setQuantityByProduct({...quantityByProduct, [product.id]: Math.max(1, currentQty - 1)})} className="w-6 h-6 sm:w-7 sm:h-7 bg-slate-950 border border-slate-800 rounded-lg text-xs font-bold">-</button>
-                                                                <span className="text-xs font-bold text-teal-400 px-1">{currentQty}</span>
-                                                                <button onClick={() => setQuantityByProduct({...quantityByProduct, [product.id]: currentQty + 1})} className="w-6 h-6 sm:w-7 sm:h-7 bg-slate-950 border border-slate-800 rounded-lg text-xs font-bold">+</button>
-                                                            </div>
-                                                        </div>
-                                                        <div className="grid grid-cols-2 gap-1.5">
-                                                            <button onClick={() => setSelectedProductModal(product)} className="w-full py-2 bg-slate-950 hover:bg-slate-800 border border-slate-800 text-slate-300 rounded-xl text-[10px] sm:text-xs font-bold transition">
-                                                                Détails
-                                                            </button>
-                                                            <button onClick={() => addToCart(product, currentVariant, currentQty)} className="w-full py-2 bg-teal-500 hover:bg-teal-400 text-slate-950 rounded-xl text-[10px] sm:text-xs font-bold transition">
-                                                                Ajouter
-                                                            </button>
-                                                        </div>
-                                                    </div>
+                                                        );
+                                                    })}
                                                 </div>
-                                            );
-                                        })}
-                                </div>
-                            </div>
+                                            )}
+                                        </div>
+
+                                        <div className="space-y-4 pt-6 border-t border-slate-800">
+                                            <h2 className="text-sm font-extrabold uppercase tracking-wider text-teal-400">Explorer par Marque</h2>
+                                            {brands.length === 0 ? (
+                                                <p className="text-xs text-slate-500">Aucune marque créée pour le moment.</p>
+                                            ) : (
+                                                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                                                    {brands.map(b => {
+                                                        const count = products.filter(p => p.brand_id === b.id).length;
+                                                        return (
+                                                            <div 
+                                                                key={b.id} 
+                                                                onClick={() => navigateTo('brand', null, b.id)}
+                                                                className="bg-slate-900/90 border border-slate-800 p-5 rounded-3xl flex flex-col items-center text-center cursor-pointer hover:border-teal-500 transition group">
+                                                                <img src={b.logo_url} alt={b.name} className="w-16 h-16 object-cover rounded-2xl border border-slate-800 mb-3 group-hover:scale-105 transition" />
+                                                                <h3 className="font-bold text-sm text-slate-100 group-hover:text-teal-400 transition">{b.name}</h3>
+                                                                <p className="text-[11px] text-slate-400 mt-1">{count} produit(s)</p>
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {currentView === 'search' && (
+                                    <div className="space-y-8">
+                                        <div className="border-b border-slate-800 pb-4">
+                                            <h2 className="text-2xl font-black text-slate-100">Résultats de recherche</h2>
+                                            <p className="text-xs text-teal-400 mt-1">Recherche associée : "{searchQuery}" ({searchResults.length} résultat(s) trouvé(s))</p>
+                                        </div>
+
+                                        {searchResults.length === 0 ? (
+                                            <div className="text-center py-16 space-y-3 bg-slate-900/40 rounded-3xl border border-slate-800">
+                                                <p className="text-sm text-slate-400">Aucun produit ne correspond à votre recherche.</p>
+                                                <button onClick={() => navigateTo('home')} className="px-4 py-2 bg-teal-500 text-slate-950 font-bold text-xs rounded-xl">Retour à l'accueil</button>
+                                            </div>
+                                        ) : (
+                                            <div className="grid grid-cols-2 gap-4 sm:gap-6">
+                                                {searchResults.map(product => {
+                                                    const brand = brands.find(b => b.id === product.brand_id);
+                                                    const selectedVarId = selectedVariantByProduct[product.id] || product.variants[0]?.id;
+                                                    const currentVariant = product.variants.find(v => v.id === selectedVarId) || product.variants[0] || {};
+                                                    const displayImage = currentVariant?.image_url || product.main_image_url;
+                                                    const currentQty = quantityByProduct[product.id] || 1;
+
+                                                    return (
+                                                        <div key={product.id} className="bg-slate-900/90 border border-slate-800/80 rounded-3xl overflow-hidden shadow-xl flex flex-col justify-between group hover:border-teal-500/60 transition duration-300">
+                                                            <div>
+                                                                <div className="relative h-36 sm:h-48 overflow-hidden bg-slate-950 cursor-pointer" onClick={() => setSelectedProductModal(product)}>
+                                                                    <img src={displayImage} alt={product.name} className="w-full h-full object-cover group-hover:scale-105 transition duration-500" />
+                                                                    {brand && <span className="absolute top-2 left-2 bg-slate-950/80 backdrop-blur-md text-teal-400 text-[9px] sm:text-[10px] uppercase font-extrabold px-2 py-0.5 rounded-full border border-slate-800">{brand.name}</span>}
+                                                                </div>
+                                                                <div className="p-3 sm:p-5 space-y-2">
+                                                                    <h3 className="font-bold text-xs sm:text-base text-slate-100 cursor-pointer hover:text-teal-400 transition" onClick={() => setSelectedProductModal(product)}>{product.name}</h3>
+                                                                    <p className="text-[11px] sm:text-xs text-slate-400 line-clamp-2 leading-relaxed">{product.short_description}</p>
+                                                                    <p className="text-[10px] font-bold text-slate-500">Stock dispo : <span className={currentVariant.stock > 0 ? "text-emerald-400" : "text-rose-400"}>{currentVariant.stock || 0}</span></p>
+                                                                </div>
+                                                            </div>
+                                                            <div className="p-3 sm:p-5 pt-0 space-y-3 border-t border-slate-800/60 mt-2">
+                                                                <div className="flex items-center justify-between">
+                                                                    <span className="font-black text-teal-400 text-xs sm:text-base">{((currentVariant.price || 0) * currentQty).toLocaleString()} Ar</span>
+                                                                    <div className="flex items-center space-x-1 sm:space-x-1.5">
+                                                                        <button onClick={() => setQuantityByProduct({...quantityByProduct, [product.id]: Math.max(1, currentQty - 1)})} className="w-6 h-6 sm:w-7 sm:h-7 bg-slate-950 border border-slate-800 rounded-lg text-xs font-bold">-</button>
+                                                                        <span className="text-xs font-bold text-teal-400 px-1">{currentQty}</span>
+                                                                        <button onClick={() => setQuantityByProduct({...quantityByProduct, [product.id]: currentQty + 1})} className="w-6 h-6 sm:w-7 sm:h-7 bg-slate-950 border border-slate-800 rounded-lg text-xs font-bold">+</button>
+                                                                    </div>
+                                                                </div>
+                                                                <div className="grid grid-cols-2 gap-1.5">
+                                                                    <button onClick={() => setSelectedProductModal(product)} className="w-full py-2 bg-slate-950 hover:bg-slate-800 border border-slate-800 text-slate-300 rounded-xl text-[10px] sm:text-xs font-bold transition">
+                                                                        Détails
+                                                                    </button>
+                                                                    <button onClick={() => addToCart(product, currentVariant, currentQty)} className="w-full py-2 bg-teal-500 hover:bg-teal-400 text-slate-950 rounded-xl text-[10px] sm:text-xs font-bold transition shadow-md shadow-teal-500/20 active:scale-95">
+                                                                        Ajouter
+                                                                    </button>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+
+                                {currentView === 'category' && (
+                                    <div className="space-y-8">
+                                        <div className="border-b border-slate-800 pb-4">
+                                            <h2 className="text-2xl font-black text-slate-100">{activeCategory ? activeCategory.name : 'Catalogue'}</h2>
+                                            <p className="text-xs text-slate-400 mt-1">Découvrez l'ensemble des articles de cette rubrique.</p>
+                                        </div>
+
+                                        <div className="grid grid-cols-2 gap-4 sm:gap-6">
+                                            {products
+                                                .filter(p => p.category_id === selectedCategoryId || categories.find(c => c.id === p.category_id)?.parent_id === selectedCategoryId)
+                                                .map(product => {
+                                                    const brand = brands.find(b => b.id === product.brand_id);
+                                                    const selectedVarId = selectedVariantByProduct[product.id] || product.variants[0]?.id;
+                                                    const currentVariant = product.variants.find(v => v.id === selectedVarId) || product.variants[0] || {};
+                                                    const displayImage = currentVariant?.image_url || product.main_image_url;
+                                                    const currentQty = quantityByProduct[product.id] || 1;
+
+                                                    return (
+                                                        <div key={product.id} className="bg-slate-900/90 border border-slate-800/80 rounded-3xl overflow-hidden shadow-xl flex flex-col justify-between group hover:border-teal-500/60 transition duration-300">
+                                                            <div>
+                                                                <div className="relative h-36 sm:h-48 overflow-hidden bg-slate-950 cursor-pointer" onClick={() => setSelectedProductModal(product)}>
+                                                                    <img src={displayImage} alt={product.name} className="w-full h-full object-cover group-hover:scale-105 transition duration-500" />
+                                                                    {brand && <span className="absolute top-2 left-2 bg-slate-950/80 backdrop-blur-md text-teal-400 text-[9px] sm:text-[10px] uppercase font-extrabold px-2 py-0.5 rounded-full border border-slate-800">{brand.name}</span>}
+                                                                </div>
+                                                                <div className="p-3 sm:p-5 space-y-2">
+                                                                    <h3 className="font-bold text-xs sm:text-base text-slate-100 cursor-pointer hover:text-teal-400 transition" onClick={() => setSelectedProductModal(product)}>{product.name}</h3>
+                                                                    <p className="text-[11px] sm:text-xs text-slate-400 line-clamp-2 leading-relaxed">{product.short_description}</p>
+                                                                    <p className="text-[10px] font-bold text-slate-500">Stock dispo : <span className={currentVariant.stock > 0 ? "text-emerald-400" : "text-rose-400"}>{currentVariant.stock || 0}</span></p>
+                                                                </div>
+                                                            </div>
+                                                            <div className="p-3 sm:p-5 pt-0 space-y-3 border-t border-slate-800/60 mt-2">
+                                                                <div className="flex items-center justify-between">
+                                                                    <span className="font-black text-teal-400 text-xs sm:text-base">{((currentVariant.price || 0) * currentQty).toLocaleString()} Ar</span>
+                                                                    <div className="flex items-center space-x-1 sm:space-x-1.5">
+                                                                        <button onClick={() => setQuantityByProduct({...quantityByProduct, [product.id]: Math.max(1, currentQty - 1)})} className="w-6 h-6 sm:w-7 sm:h-7 bg-slate-950 border border-slate-800 rounded-lg text-xs font-bold">-</button>
+                                                                        <span className="text-xs font-bold text-teal-400 px-1">{currentQty}</span>
+                                                                        <button onClick={() => setQuantityByProduct({...quantityByProduct, [product.id]: currentQty + 1})} className="w-6 h-6 sm:w-7 sm:h-7 bg-slate-950 border border-slate-800 rounded-lg text-xs font-bold">+</button>
+                                                                    </div>
+                                                                </div>
+                                                                <div className="grid grid-cols-2 gap-1.5">
+                                                                    <button onClick={() => setSelectedProductModal(product)} className="w-full py-2 bg-slate-950 hover:bg-slate-800 border border-slate-800 text-slate-300 rounded-xl text-[10px] sm:text-xs font-bold transition">
+                                                                        Détails
+                                                                    </button>
+                                                                    <button onClick={() => addToCart(product, currentVariant, currentQty)} className="w-full py-2 bg-teal-500 hover:bg-teal-400 text-slate-950 rounded-xl text-[10px] sm:text-xs font-bold transition shadow-md shadow-teal-500/20 active:scale-95">
+                                                                        Ajouter
+                                                                    </button>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {currentView === 'brand' && (
+                                    <div className="space-y-8">
+                                        <div className="border-b border-slate-800 pb-4 flex items-center space-x-4">
+                                            {activeBrand && <img src={activeBrand.logo_url} alt={activeBrand.name} className="w-14 h-14 object-cover rounded-2xl border border-slate-800" />}
+                                            <div>
+                                                <h2 className="text-2xl font-black text-slate-100">{activeBrand ? activeBrand.name : 'Marque'}</h2>
+                                                <p className="text-xs text-slate-400 mt-1">{activeBrand?.description || 'Tous les produits de cette marque.'}</p>
+                                            </div>
+                                        </div>
+
+                                        <div className="grid grid-cols-2 gap-4 sm:gap-6">
+                                            {products
+                                                .filter(p => p.brand_id === selectedBrandId)
+                                                .map(product => {
+                                                    const selectedVarId = selectedVariantByProduct[product.id] || product.variants[0]?.id;
+                                                    const currentVariant = product.variants.find(v => v.id === selectedVarId) || product.variants[0] || {};
+                                                    const displayImage = currentVariant?.image_url || product.main_image_url;
+                                                    const currentQty = quantityByProduct[product.id] || 1;
+
+                                                    return (
+                                                        <div key={product.id} className="bg-slate-900/90 border border-slate-800/80 rounded-3xl overflow-hidden shadow-xl flex flex-col justify-between group">
+                                                            <div>
+                                                                <div className="relative h-36 sm:h-48 overflow-hidden bg-slate-950 cursor-pointer" onClick={() => setSelectedProductModal(product)}>
+                                                                    <img src={displayImage} alt={product.name} className="w-full h-full object-cover group-hover:scale-105 transition duration-500" />
+                                                                </div>
+                                                                <div className="p-3 sm:p-5 space-y-2">
+                                                                    <h3 className="font-bold text-xs sm:text-base text-slate-100 cursor-pointer hover:text-teal-400" onClick={() => setSelectedProductModal(product)}>{product.name}</h3>
+                                                                    <p className="text-[11px] sm:text-xs text-slate-400 line-clamp-2">{product.short_description}</p>
+                                                                    <p className="text-[10px] font-bold text-slate-500">Stock dispo : <span className={currentVariant.stock > 0 ? "text-emerald-400" : "text-rose-400"}>{currentVariant.stock || 0}</span></p>
+                                                                </div>
+                                                            </div>
+                                                            <div className="p-3 sm:p-5 pt-0 space-y-3 border-t border-slate-800/60 mt-2">
+                                                                <div className="flex items-center justify-between">
+                                                                    <span className="font-black text-teal-400 text-xs sm:text-base">{((currentVariant.price || 0) * currentQty).toLocaleString()} Ar</span>
+                                                                    <div className="flex items-center space-x-1 sm:space-x-1.5">
+                                                                        <button onClick={() => setQuantityByProduct({...quantityByProduct, [product.id]: Math.max(1, currentQty - 1)})} className="w-6 h-6 sm:w-7 sm:h-7 bg-slate-950 border border-slate-800 rounded-lg text-xs font-bold">-</button>
+                                                                        <span className="text-xs font-bold text-teal-400 px-1">{currentQty}</span>
+                                                                        <button onClick={() => setQuantityByProduct({...quantityByProduct, [product.id]: currentQty + 1})} className="w-6 h-6 sm:w-7 sm:h-7 bg-slate-950 border border-slate-800 rounded-lg text-xs font-bold">+</button>
+                                                                    </div>
+                                                                </div>
+                                                                <div className="grid grid-cols-2 gap-1.5">
+                                                                    <button onClick={() => setSelectedProductModal(product)} className="w-full py-2 bg-slate-950 hover:bg-slate-800 border border-slate-800 text-slate-300 rounded-xl text-[10px] sm:text-xs font-bold transition">
+                                                                        Détails
+                                                                    </button>
+                                                                    <button onClick={() => addToCart(product, currentVariant, currentQty)} className="w-full py-2 bg-teal-500 hover:bg-teal-400 text-slate-950 rounded-xl text-[10px] sm:text-xs font-bold transition">
+                                                                        Ajouter
+                                                                    </button>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })}
+                                        </div>
+                                    </div>
+                                )}
+                            </>
                         )}
 
                         {currentView === 'admin' && adminUnlocked && (
@@ -816,12 +851,14 @@
                                                     <div>
                                                         <label className="text-xs text-slate-400 font-bold uppercase">Marque</label>
                                                         <select value={newProduct.brand_id} onChange={e=>setNewProduct({...newProduct, brand_id: e.target.value})} className="w-full mt-1 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm">
+                                                            <option value="">Sélectionner</option>
                                                             {brands.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
                                                         </select>
                                                     </div>
                                                     <div>
                                                         <label className="text-xs text-slate-400 font-bold uppercase">Rubrique</label>
                                                         <select value={newProduct.category_id} onChange={e=>setNewProduct({...newProduct, category_id: e.target.value})} className="w-full mt-1 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm">
+                                                            <option value="">Sélectionner</option>
                                                             {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                                                         </select>
                                                     </div>
@@ -940,7 +977,7 @@
 
                                                 <div className="flex gap-2">
                                                     <button type="submit" className="flex-1 py-3 bg-indigo-600 hover:bg-indigo-500 rounded-xl font-bold text-xs uppercase tracking-wider">
-                                                        {editingProductId ? 'Mettre à jour' : 'Enregistrer'}
+                                                        {editingProductId ? 'Mettre à jour' : 'Enregistrer dans Supabase'}
                                                     </button>
                                                     {editingProductId && (
                                                         <button type="button" onClick={() => setEditingProductId(null)} className="px-4 py-3 bg-slate-800 rounded-xl text-xs font-bold">Annuler</button>
@@ -950,7 +987,7 @@
                                         </div>
 
                                         <div className="lg:col-span-2 bg-slate-900 border border-slate-800 p-6 rounded-3xl">
-                                            <h2 className="text-sm font-bold uppercase text-indigo-400 mb-4">Catalogue Actuel ({products.length})</h2>
+                                            <h2 className="text-sm font-bold uppercase text-indigo-400 mb-4">Catalogue dans Supabase ({products.length})</h2>
                                             <div className="space-y-3 max-h-[600px] overflow-y-auto pr-2">
                                                 {products.map(p => (
                                                     <div key={p.id} className="bg-slate-950 border border-slate-800 p-4 rounded-xl flex items-center justify-between">
@@ -992,10 +1029,9 @@
                                                         <input type="file" accept="image/*" onChange={handleBrandLogoUpload} className="w-full mt-1 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-400" />
                                                         {newBrandLogo && <img src={newBrandLogo} alt="Logo" className="w-12 h-12 object-cover rounded-xl mt-2 border border-slate-800" />}
                                                     </div>
-                                                    <button type="submit" className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-500 rounded-xl font-bold text-xs uppercase">Ajouter la marque</button>
+                                                    <button type="submit" className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-500 rounded-xl font-bold text-xs uppercase">Ajouter à Supabase</button>
                                                 </form>
 
-                                                {/* LISTE DES MARQUES EXISTANTES */}
                                                 <div className="pt-4 border-t border-slate-800 space-y-2">
                                                     <span className="text-xs font-bold text-slate-400 uppercase">Marques enregistrées ({brands.length})</span>
                                                     <div className="space-y-2 max-h-[200px] overflow-y-auto pr-1">
@@ -1044,7 +1080,6 @@
                                                     </div>
                                                 </form>
 
-                                                {/* LISTE DES RUBRIQUES */}
                                                 <div className="pt-4 border-t border-slate-800 space-y-2">
                                                     <span className="text-xs font-bold text-slate-400 uppercase">Rubriques Existantes ({categories.length})</span>
                                                     <div className="space-y-2 max-h-[200px] overflow-y-auto pr-1">
@@ -1099,7 +1134,7 @@
                     {selectedProductModal && (() => {
                         const product = selectedProductModal;
                         const selectedVarId = selectedVariantByProduct[product.id] || product.variants[0]?.id;
-                        const currentVariant = product.variants.find(v => v.id === selectedVarId) || product.variants[0];
+                        const currentVariant = product.variants.find(v => v.id === selectedVarId) || product.variants[0] || {};
                         const displayImage = currentVariant?.image_url || product.main_image_url;
                         const currentQty = quantityByProduct[product.id] || 1;
                         const brand = brands.find(b => b.id === product.brand_id);
@@ -1119,8 +1154,8 @@
                                         <img src={displayImage} alt={product.name} className="w-full h-48 sm:h-56 object-cover rounded-2xl border border-slate-800" />
                                         <div className="space-y-3">
                                             <p className="text-xs text-slate-300 leading-relaxed">{product.short_description}</p>
-                                            <div className="text-teal-400 font-black text-xl">{(currentVariant.price * currentQty).toLocaleString()} Ar</div>
-                                            <p className="text-xs font-bold text-slate-400">Stock disponible : <span className={currentVariant.stock > 0 ? "text-emerald-400" : "text-rose-400"}>{currentVariant.stock}</span></p>
+                                            <div className="text-teal-400 font-black text-xl">{((currentVariant.price || 0) * currentQty).toLocaleString()} Ar</div>
+                                            <p className="text-xs font-bold text-slate-400">Stock disponible : <span className={currentVariant.stock > 0 ? "text-emerald-400" : "text-rose-400"}>{currentVariant.stock || 0}</span></p>
                                             {currentVariant.flavor && currentVariant.flavor !== '-' && (
                                                 <div className="text-xs bg-slate-950 border border-slate-800 px-3 py-1.5 rounded-xl">
                                                     <span className="text-slate-400 font-bold">Saveur : </span>
