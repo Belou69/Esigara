@@ -157,8 +157,10 @@
             const [newProduct, setNewProduct] = useState({
                 name: '', brand_id: '', category_id: '', short_description: '', box_content: '', main_image_url: 'https://images.unsplash.com/photo-1539185441755-769473a23570?auto=format&fit=crop&w=600&q=80'
             });
+            
+            // Déclinaisons : seul le PRIX est obligatoire
             const [variantsList, setVariantsList] = useState([
-                { id: 'var_1', price: '', stock: '10', nicotine_level: '0mg', volume_ml: '10ml', ohm_value: '-', color_finish: '-', flavor: 'Classic', image_url: '' }
+                { id: 'var_1', price: '', stock: '0', nicotine_level: '-', volume_ml: '-', ohm_value: '-', color_finish: '-', flavor: '-', image_url: '' }
             ]);
 
             const [isDiyCalculatorActive, setIsDiyCalculatorActive] = useState(false);
@@ -256,11 +258,11 @@
             };
 
             const addVariantField = () => {
-                setVariantsList([...variantsList, { id: 'var_' + Date.now(), price: '', stock: '10', nicotine_level: '0mg', volume_ml: '10ml', ohm_value: '-', color_finish: '-', flavor: 'Autre Saveur', image_url: '' }]);
+                setVariantsList([...variantsList, { id: 'var_' + Date.now(), price: '', stock: '0', nicotine_level: '-', volume_ml: '-', ohm_value: '-', color_finish: '-', flavor: '-', image_url: '' }]);
             };
 
             const removeVariantField = (id) => {
-                if (variantsList.length === 1) return alert('Le produit doit avoir au moins une déclinaison.');
+                if (variantsList.length === 1) return alert('Le produit doit avoir au moins un tarif/prix principal.');
                 setVariantsList(variantsList.filter(v => v.id !== id));
             };
 
@@ -270,17 +272,20 @@
 
             const handleSaveProduct = async (e) => {
                 e.preventDefault();
-                if (!newProduct.name || variantsList.some(v => !v.price)) return alert('Veuillez remplir le nom et le prix de chaque déclinaison.');
+                if (!newProduct.name) return alert('Veuillez spécifier le nom du produit.');
+                if (variantsList.some(v => !v.price || isNaN(parseFloat(v.price)))) {
+                    return alert('Chaque déclinaison doit posséder au moins un prix valide.');
+                }
 
-                const productId = editingProductId || Date.now();
+                const productId = editingProductId || Date.now().toString();
 
                 const { error: pError } = await supabaseClient.from('products').upsert([{
                     id: productId,
                     name: newProduct.name,
                     brand_id: newProduct.brand_id || null,
                     category_id: newProduct.category_id || null,
-                    short_description: newProduct.short_description,
-                    box_content: newProduct.box_content,
+                    short_description: newProduct.short_description || '',
+                    box_content: newProduct.box_content || '',
                     main_image_url: newProduct.main_image_url
                 }]);
 
@@ -294,13 +299,13 @@
                     id: 'var_' + productId + '_' + i,
                     product_id: productId,
                     price: parseFloat(v.price),
-                    stock: parseInt(v.stock) || 10,
-                    nicotine_level: v.nicotine_level,
-                    volume_ml: v.volume_ml,
-                    ohm_value: v.ohm_value,
-                    color_finish: v.color_finish,
-                    flavor: v.flavor || 'Standard',
-                    image_url: v.image_url
+                    stock: v.stock !== '' ? parseInt(v.stock) : 0,
+                    nicotine_level: v.nicotine_level || '-',
+                    volume_ml: v.volume_ml || '-',
+                    ohm_value: v.ohm_value || '-',
+                    color_finish: v.color_finish || '-',
+                    flavor: v.flavor || '-',
+                    image_url: v.image_url || ''
                 }));
 
                 const { error: vError } = await supabaseClient.from('variants').insert(formattedVariants);
@@ -310,7 +315,7 @@
                 alert(editingProductId ? 'Produit mis à jour avec succès !' : 'Produit enregistré avec succès !');
                 setEditingProductId(null);
                 setNewProduct({ name: '', brand_id: '', category_id: '', short_description: '', box_content: '', main_image_url: 'https://images.unsplash.com/photo-1539185441755-769473a23570?auto=format&fit=crop&w=600&q=80' });
-                setVariantsList([{ id: 'var_1', price: '', stock: '10', nicotine_level: '0mg', volume_ml: '10ml', ohm_value: '-', color_finish: '-', flavor: 'Classic', image_url: '' }]);
+                setVariantsList([{ id: 'var_1', price: '', stock: '0', nicotine_level: '-', volume_ml: '-', ohm_value: '-', color_finish: '-', flavor: '-', image_url: '' }]);
                 setIsDiyCalculatorActive(false);
                 loadDataFromSupabase();
             };
@@ -321,19 +326,19 @@
                     name: prod.name,
                     brand_id: prod.brand_id || '',
                     category_id: prod.category_id || '',
-                    short_description: prod.short_description,
+                    short_description: prod.short_description || '',
                     box_content: prod.box_content || '',
                     main_image_url: prod.main_image_url
                 });
                 setVariantsList(prod.variants.map(v => ({
                     id: v.id,
                     price: v.price.toString(),
-                    stock: v.stock.toString(),
-                    nicotine_level: v.nicotine_level || '0mg',
-                    volume_ml: v.volume_ml || '10ml',
+                    stock: (v.stock ?? 0).toString(),
+                    nicotine_level: v.nicotine_level || '-',
+                    volume_ml: v.volume_ml || '-',
                     ohm_value: v.ohm_value || '-',
                     color_finish: v.color_finish || '-',
-                    flavor: v.flavor || 'Standard',
+                    flavor: v.flavor || '-',
                     image_url: v.image_url || ''
                 })));
             };
@@ -498,7 +503,7 @@
                                 <div className="space-y-2">
                                     <h2 className="text-xl font-black text-slate-100">Avertissement Légal</h2>
                                     <p className="text-xs text-slate-400 leading-relaxed">
-                                        Les produits contenus sur <strong className="text-teal-400">Esigara.mg</strong> sont strictly réservés aux personnes majeures.
+                                        Les produits contenus sur <strong className="text-teal-400">Esigara.mg</strong> sont strictement réservés aux personnes majeures.
                                     </p>
                                     <p className="text-xs text-slate-300 font-semibold pt-2">
                                         Certifiez-vous avoir 18 ans ou plus ?
@@ -827,7 +832,7 @@
                             <div className="space-y-6">
                                 <div className="flex justify-between items-center border-b border-slate-800 pb-4">
                                     <div className="flex flex-wrap gap-2">
-                                        <button onClick={() => setAdminTab('products')} className={`px-4 py-2 rounded-xl text-xs font-bold transition ${adminTab === 'products' ? 'bg-indigo-600 text-white' : 'bg-slate-900 text-slate-400'}`}>1. Produits & Déclinaisons</button>
+                                        <button onClick={() => setAdminTab('products')} className={`px-4 py-2 rounded-xl text-xs font-bold transition ${adminTab === 'products' ? 'bg-indigo-600 text-white' : 'bg-slate-900 text-slate-400'}`}>1. Produits & Tarifs</button>
                                         <button onClick={() => setAdminTab('categories')} className={`px-4 py-2 rounded-xl text-xs font-bold transition ${adminTab === 'categories' ? 'bg-indigo-600 text-white' : 'bg-slate-900 text-slate-400'}`}>2. Rubriques & Marques</button>
                                         <button onClick={() => setAdminTab('settings')} className={`px-4 py-2 rounded-xl text-xs font-bold transition ${adminTab === 'settings' ? 'bg-indigo-600 text-white' : 'bg-slate-900 text-slate-400'}`}>3. WhatsApp / Messenger</button>
                                     </div>
@@ -840,25 +845,25 @@
                                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                                         <div className="bg-slate-900 border border-slate-800 p-6 rounded-3xl space-y-4">
                                             <h2 className="text-sm font-bold uppercase text-indigo-400">
-                                                {editingProductId ? 'Modifier le Produit' : 'Ajouter un Produit & Déclinaisons'}
+                                                {editingProductId ? 'Modifier le Produit' : 'Ajouter un Produit'}
                                             </h2>
                                             <form onSubmit={handleSaveProduct} className="space-y-4">
                                                 <div>
-                                                    <label className="text-xs text-slate-400 font-bold uppercase">Nom du Produit</label>
-                                                    <input type="text" value={newProduct.name} onChange={e=>setNewProduct({...newProduct, name: e.target.value})} placeholder="ex: E-liquide DIY / Vaporesso" className="w-full mt-1 bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-sm" required />
+                                                    <label className="text-xs text-slate-400 font-bold uppercase">Nom du Produit *</label>
+                                                    <input type="text" value={newProduct.name} onChange={e=>setNewProduct({...newProduct, name: e.target.value})} placeholder="ex: E-liquide / Kit Vaporesso" className="w-full mt-1 bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-sm" required />
                                                 </div>
                                                 <div className="grid grid-cols-2 gap-2">
                                                     <div>
                                                         <label className="text-xs text-slate-400 font-bold uppercase">Marque</label>
                                                         <select value={newProduct.brand_id} onChange={e=>setNewProduct({...newProduct, brand_id: e.target.value})} className="w-full mt-1 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm">
-                                                            <option value="">Sélectionner</option>
+                                                            <option value="">Sélectionner (optionnel)</option>
                                                             {brands.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
                                                         </select>
                                                     </div>
                                                     <div>
                                                         <label className="text-xs text-slate-400 font-bold uppercase">Rubrique</label>
                                                         <select value={newProduct.category_id} onChange={e=>setNewProduct({...newProduct, category_id: e.target.value})} className="w-full mt-1 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm">
-                                                            <option value="">Sélectionner</option>
+                                                            <option value="">Sélectionner (optionnel)</option>
                                                             {categories.map(c => (
                                                                 <option key={c.id} value={c.id}>
                                                                     {c.parent_id ? `↳ ${c.name}` : c.name}
@@ -869,12 +874,12 @@
                                                 </div>
                                                 <div>
                                                     <label className="text-xs text-slate-400 font-bold uppercase">Description rapide</label>
-                                                    <input type="text" value={newProduct.short_description} onChange={e=>setNewProduct({...newProduct, short_description: e.target.value})} placeholder="Résumé..." className="w-full mt-1 bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-sm" />
+                                                    <input type="text" value={newProduct.short_description} onChange={e=>setNewProduct({...newProduct, short_description: e.target.value})} placeholder="Résumé (optionnel)..." className="w-full mt-1 bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-sm" />
                                                 </div>
 
                                                 <div>
                                                     <label className="text-xs text-teal-400 font-bold uppercase">Contenu de la boîte (Box Content)</label>
-                                                    <textarea value={newProduct.box_content} onChange={e=>setNewProduct({...newProduct, box_content: e.target.value})} placeholder="ex: 1x Batterie, 2x Résistances..." className="w-full mt-1 bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-sm" rows="2"></textarea>
+                                                    <textarea value={newProduct.box_content} onChange={e=>setNewProduct({...newProduct, box_content: e.target.value})} placeholder="ex: 1x Batterie, 2x Résistances... (optionnel)" className="w-full mt-1 bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-sm" rows="2"></textarea>
                                                 </div>
 
                                                 <div className="bg-slate-950 border border-teal-500/40 p-4 rounded-2xl space-y-3">
@@ -920,35 +925,35 @@
 
                                                 <div className="border-t border-slate-800 pt-3 space-y-3">
                                                     <div className="flex justify-between items-center">
-                                                        <span className="text-xs font-bold text-teal-400 uppercase">Déclinaisons & Saveurs</span>
-                                                        <button type="button" onClick={addVariantField} className="px-2.5 py-1 bg-teal-500/10 text-teal-400 border border-teal-500/30 rounded-lg text-xs font-bold">+ Variante</button>
+                                                        <span className="text-xs font-bold text-teal-400 uppercase">Tarif & Déclinaisons</span>
+                                                        <button type="button" onClick={addVariantField} className="px-2.5 py-1 bg-teal-500/10 text-teal-400 border border-teal-500/30 rounded-lg text-xs font-bold">+ Option / Variante</button>
                                                     </div>
 
                                                     {variantsList.map((v, index) => (
                                                         <div key={v.id} className="bg-slate-950 border border-slate-800 p-3 rounded-xl space-y-2">
                                                             <div className="flex justify-between items-center text-[11px] text-slate-400 font-bold">
-                                                                <span>Variante #{index + 1}</span>
+                                                                <span>Option #{index + 1}</span>
                                                                 {variantsList.length > 1 && <button type="button" onClick={() => removeVariantField(v.id)} className="text-rose-400">Supprimer</button>}
                                                             </div>
                                                             <div className="grid grid-cols-3 gap-2">
                                                                 <div>
-                                                                    <label className="text-[10px] text-slate-400">Prix (Ar)</label>
-                                                                    <input type="number" value={v.price} onChange={e=>handleVariantChange(v.id, 'price', e.target.value)} placeholder="75000" className="w-full bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs" required />
+                                                                    <label className="text-[10px] text-slate-400 font-bold text-rose-400">Prix (Ar) *</label>
+                                                                    <input type="number" value={v.price} onChange={e=>handleVariantChange(v.id, 'price', e.target.value)} placeholder="ex: 75000" className="w-full bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs" required />
                                                                 </div>
                                                                 <div>
                                                                     <label className="text-[10px] text-slate-400">Stock</label>
-                                                                    <input type="number" value={v.stock} onChange={e=>handleVariantChange(v.id, 'stock', e.target.value)} placeholder="10" className="w-full bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs" required />
+                                                                    <input type="number" value={v.stock} onChange={e=>handleVariantChange(v.id, 'stock', e.target.value)} placeholder="0" className="w-full bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs" />
                                                                 </div>
                                                                 <div>
                                                                     <label className="text-[10px] text-slate-400">Saveur</label>
-                                                                    <input type="text" value={v.flavor} onChange={e=>handleVariantChange(v.id, 'flavor', e.target.value)} placeholder="Fraise" className="w-full bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs" />
+                                                                    <input type="text" value={v.flavor === '-' ? '' : v.flavor} onChange={e=>handleVariantChange(v.id, 'flavor', e.target.value || '-')} placeholder="Optionnel" className="w-full bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs" />
                                                                 </div>
                                                             </div>
                                                             <div className="grid grid-cols-3 gap-2">
                                                                 <div>
                                                                     <label className="text-[10px] text-slate-400">Nicotine</label>
                                                                     <select value={v.nicotine_level} onChange={e=>handleVariantChange(v.id, 'nicotine_level', e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-lg px-2 py-1.5 text-xs">
-                                                                        <option value="-">-</option>
+                                                                        <option value="-">- Aucun -</option>
                                                                         <option value="0mg">0mg</option>
                                                                         <option value="3mg">3mg</option>
                                                                         <option value="6mg">6mg</option>
@@ -958,7 +963,7 @@
                                                                 <div>
                                                                     <label className="text-[10px] text-slate-400">Volume</label>
                                                                     <select value={v.volume_ml} onChange={e=>handleVariantChange(v.id, 'volume_ml', e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-lg px-2 py-1.5 text-xs">
-                                                                        <option value="-">-</option>
+                                                                        <option value="-">- Aucun -</option>
                                                                         <option value="10ml">10ml</option>
                                                                         <option value="30ml">30ml</option>
                                                                         <option value="50ml">50ml</option>
@@ -967,11 +972,11 @@
                                                                 </div>
                                                                 <div>
                                                                     <label className="text-[10px] text-slate-400">Coloris</label>
-                                                                    <input type="text" value={v.color_finish} onChange={e=>handleVariantChange(v.id, 'color_finish', e.target.value)} placeholder="Black" className="w-full bg-slate-900 border border-slate-800 rounded-lg px-2 py-1.5 text-xs" />
+                                                                    <input type="text" value={v.color_finish === '-' ? '' : v.color_finish} onChange={e=>handleVariantChange(v.id, 'color_finish', e.target.value || '-')} placeholder="Optionnel" className="w-full bg-slate-900 border border-slate-800 rounded-lg px-2 py-1.5 text-xs" />
                                                                 </div>
                                                             </div>
                                                             <div>
-                                                                <label className="text-[10px] text-slate-400">Image spécifique</label>
+                                                                <label className="text-[10px] text-slate-400">Photo spécifique (optionnel)</label>
                                                                 <input type="file" accept="image/*" onChange={(e) => handleVariantImageUpload(v.id, e)} className="w-full bg-slate-900 border border-slate-800 rounded-lg px-2 py-1 text-[11px] text-slate-400" />
                                                                 {v.image_url && <img src={v.image_url} alt="Variante" className="w-10 h-10 object-cover rounded mt-1 border border-slate-800" />}
                                                             </div>
@@ -999,7 +1004,7 @@
                                                             <img src={p.main_image_url} alt={p.name} className="w-12 h-12 object-cover rounded-lg border border-slate-800" />
                                                             <div>
                                                                 <h3 className="font-bold text-sm text-slate-200">{p.name}</h3>
-                                                                <p className="text-xs text-slate-400">{p.variants.length} variante(s) - Stock total : {p.variants.reduce((sum, v)=>sum+v.stock, 0)}</p>
+                                                                <p className="text-xs text-slate-400">{p.variants.length} option(s) tarifaire(s) - Stock total : {p.variants.reduce((sum, v)=>sum+v.stock, 0)}</p>
                                                             </div>
                                                         </div>
                                                         <div className="flex items-center space-x-2">
@@ -1195,16 +1200,16 @@
                                         </div>
                                     </div>
 
-                                    {product.variants.length > 0 && (
+                                    {product.variants.length > 1 && (
                                         <div className="space-y-1.5 pt-2 border-t border-slate-800">
-                                            <span className="text-xs font-bold text-slate-400 uppercase">Variantes / Saveurs disponibles :</span>
+                                            <span className="text-xs font-bold text-slate-400 uppercase">Options / Saveurs disponibles :</span>
                                             <div className="flex flex-wrap gap-2">
                                                 {product.variants.map(v => (
                                                     <button 
                                                         key={v.id} 
                                                         onClick={() => setSelectedVariantByProduct({...selectedVariantByProduct, [product.id]: v.id})}
                                                         className={`text-xs px-3 py-2 rounded-xl border font-semibold transition flex flex-col items-start ${currentVariant.id === v.id ? 'bg-teal-500 text-slate-950 border-teal-400 shadow-lg' : 'bg-slate-950 border-slate-800 text-slate-300'}`}>
-                                                        <span className="font-bold">{v.flavor !== '-' ? v.flavor : 'Standard'} (Stock: {v.stock})</span>
+                                                        <span className="font-bold">{v.flavor !== '-' ? v.flavor : 'Option'} (Stock: {v.stock})</span>
                                                         <span className="text-[10px] opacity-80">{v.volume_ml !== '-' ? v.volume_ml : ''} {v.nicotine_level !== '-' ? '• Nic: ' + v.nicotine_level : ''} {v.color_finish !== '-' ? '• Color: ' + v.color_finish : ''}</span>
                                                     </button>
                                                 ))}
@@ -1261,7 +1266,7 @@
                                                 <div>
                                                     <p className="font-bold text-slate-200">{item.name}</p>
                                                     <p className="text-slate-400 mt-0.5">
-                                                        {item.quantity}x [Saveur: {item.selectedVariant.flavor} | {item.selectedVariant.volume_ml} | Nic: {item.selectedVariant.nicotine_level}] - {(item.selectedVariant.price * item.quantity).toLocaleString()} Ar
+                                                        {item.quantity}x [Prix : {(item.selectedVariant.price * item.quantity).toLocaleString()} Ar]
                                                     </p>
                                                 </div>
                                                 <button onClick={() => setCart(cart.filter(c => c.cartId !== item.cartId))} className="w-6 h-6 rounded-lg bg-rose-500/10 text-rose-400 hover:bg-rose-500 hover:text-white flex items-center justify-center font-bold transition">×</button>
