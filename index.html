@@ -1,0 +1,1215 @@
+<!DOCTYPE html>
+<html lang="fr" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Esigara.mg - E-commerce & Administration Vape</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        dark: { 800: '#1e293b', 900: '#0f172a', 950: '#020617' }
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- React & ReactDOM -->
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+    <!-- Babel pour JSX -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <!-- Client Supabase JS -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen selection:bg-teal-500 selection:text-slate-950 font-sans">
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+
+        // Vos clés Supabase intégrées
+        const SUPABASE_URL = "https://fcagaagjkgwejtnvdzoj.supabase.co";
+        const SUPABASE_ANON_KEY = "sb_publishable_oiiGr4O_j3Qs-udNt8if5w_SOPD-VG4";
+        const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        function App() {
+            // Vérification de l'âge (+18 ans)
+            const [isAgeVerified, setIsAgeVerified] = useState(false);
+
+            useEffect(() => {
+                const ageConfirmed = localStorage.getItem('esigara_age_verified');
+                if (ageConfirmed === 'true') {
+                    setIsAgeVerified(true);
+                }
+            }, []);
+
+            const confirmAge = () => {
+                localStorage.setItem('esigara_age_verified', 'true');
+                setIsAgeVerified(true);
+            };
+
+            const [currentView, setCurrentView] = useState('home'); // 'home', 'category', 'brand', 'search', 'admin'
+            const [selectedCategoryId, setSelectedCategoryId] = useState(null);
+            const [selectedBrandId, setSelectedBrandId] = useState(null);
+            
+            const [searchQuery, setSearchQuery] = useState('');
+            const [showCartModal, setShowCartModal] = useState(false);
+            const [selectedProductModal, setSelectedProductModal] = useState(null);
+            
+            // Gestion du bouton retour physique
+            useEffect(() => {
+                const handlePopState = (event) => {
+                    if (event.state) {
+                        setCurrentView(event.state.view || 'home');
+                        setSelectedCategoryId(event.state.categoryId || null);
+                        setSelectedBrandId(event.state.brandId || null);
+                        setSearchQuery(event.state.searchQuery || '');
+                    } else {
+                        setCurrentView('home');
+                        setSelectedCategoryId(null);
+                        setSelectedBrandId(null);
+                        setSearchQuery('');
+                    }
+                };
+                window.addEventListener('popstate', handlePopState);
+                return () => window.removeEventListener('popstate', handlePopState);
+            }, []);
+
+            const navigateTo = (view, catId = null, brandId = null, query = '') => {
+                window.history.pushState({ view, categoryId: catId, brandId, searchQuery: query }, '', `#${view}`);
+                setCurrentView(view);
+                setSelectedCategoryId(catId);
+                setSelectedBrandId(brandId);
+                if (query !== '') setSearchQuery(query);
+            };
+
+            const handleSearchSubmit = (e) => {
+                e.preventDefault();
+                if (searchQuery.trim()) {
+                    navigateTo('search', null, null, searchQuery);
+                }
+            };
+            
+            const [adminUnlocked, setAdminUnlocked] = useState(false);
+            const [showAuthModal, setShowAuthModal] = useState(false);
+            const [adminEmail, setAdminEmail] = useState('');
+            const [adminPassword, setAdminPassword] = useState('');
+            const [authError, setAuthError] = useState('');
+
+            const [adminTab, setAdminTab] = useState('products');
+
+            const [settings, setSettings] = useState({
+                whatsappNumber: '+261340000000',
+                whatsappMessage: 'Bonjour Esigara.mg, je souhaite finaliser ma commande :',
+                messengerUrl: 'https://m.me/esigaramg'
+            });
+
+            const [brands, setBrands] = useState([
+                { id: 'b1', name: 'Vaporesso', slug: 'vaporesso', description: 'Leader matériel high-tech.', logo_url: 'https://images.unsplash.com/photo-1539185441755-769473a23570?auto=format&fit=crop&w=200&q=80' },
+                { id: 'b2', name: 'Dinner Lady', slug: 'dinner-lady', description: 'E-liquides gourmands.', logo_url: 'https://images.unsplash.com/photo-1527661591475-527312dd65f5?auto=format&fit=crop&w=200&q=80' },
+                { id: 'b3', name: 'Don Cristo', slug: 'don-cristo', description: 'Classiques cubains.', logo_url: 'https://images.unsplash.com/photo-1527661591475-527312dd65f5?auto=format&fit=crop&w=200&q=80' }
+            ]);
+
+            const [categories, setCategories] = useState([
+                { id: 'c1', parent_id: null, name: 'E-Liquides', slug: 'e-liquides', image: 'https://images.unsplash.com/photo-1527661591475-527312dd65f5?auto=format&fit=crop&w=600&q=80' },
+                { id: 'c1_1', parent_id: 'c1', name: 'Fruités & Frais', slug: 'fruites-frais', image: 'https://images.unsplash.com/photo-1557804506-669a67965ba0?auto=format&fit=crop&w=600&q=80' },
+                { id: 'c1_2', parent_id: 'c1', name: 'Gourmands', slug: 'gourmands', image: 'https://images.unsplash.com/photo-1527661591475-527312dd65f5?auto=format&fit=crop&w=600&q=80' },
+                { id: 'c2', parent_id: null, name: 'Cigarettes Électroniques', slug: 'cigarettes-electroniques', image: 'https://images.unsplash.com/photo-1539185441755-769473a23570?auto=format&fit=crop&w=600&q=80' },
+                { id: 'c2_1', parent_id: 'c2', name: 'Pods & Kits', slug: 'pods-kits', image: 'https://images.unsplash.com/photo-1539185441755-769473a23570?auto=format&fit=crop&w=600&q=80' }
+            ]);
+
+            const [products, setProducts] = useState([
+                {
+                    id: 1,
+                    name: 'Vaporesso Luxe XR Max',
+                    brand_id: 'b1',
+                    category_id: 'c2_1',
+                    short_description: 'Pod mod puissant 80W batterie 2800mAh',
+                    box_content: '1x Batterie Luxe XR Max, 1x Pod Luxe XR, 2x Résistances GTX, 1x Câble USB-C',
+                    main_image_url: 'https://images.unsplash.com/photo-1539185441755-769473a23570?auto=format&fit=crop&w=600&q=80',
+                    variants: [{ id: 'v1', price: 185000, stock: 10, nicotine_level: '-', volume_ml: '-', ohm_value: '0.2Ω', color_finish: 'Black', flavor: 'Standard', image_url: '' }]
+                },
+                {
+                    id: 2,
+                    name: 'DIY E-Liquid Custom',
+                    brand_id: 'b2',
+                    category_id: 'c1_1',
+                    short_description: 'E-liquide DIY calculé par volume et nicotine',
+                    box_content: '1x Flacon personnalisé selon volume et taux de nicotine',
+                    main_image_url: 'https://images.unsplash.com/photo-1527661591475-527312dd65f5?auto=format&fit=crop&w=600&q=80',
+                    variants: [{ id: 'v2', price: 25000, stock: 50, nicotine_level: '3mg', volume_ml: '10ml', ohm_value: '-', color_finish: '-', flavor: 'Fruits Rouges', image_url: '' }]
+                }
+            ]);
+
+            const [editingProductId, setEditingProductId] = useState(null);
+            const [newProduct, setNewProduct] = useState({
+                name: '', brand_id: 'b1', category_id: 'c1', short_description: '', box_content: '', main_image_url: 'https://images.unsplash.com/photo-1539185441755-769473a23570?auto=format&fit=crop&w=600&q=80'
+            });
+            const [variantsList, setVariantsList] = useState([
+                { id: 'var_1', price: '', stock: '10', nicotine_level: '0mg', volume_ml: '10ml', ohm_value: '-', color_finish: '-', flavor: 'Classic', image_url: '' }
+            ]);
+
+            const [isDiyCalculatorActive, setIsDiyCalculatorActive] = useState(false);
+            const [diyBasePrice10ml, setDiyBasePrice10ml] = useState(15000);
+            const [diyVolumeMl, setDiyVolumeMl] = useState(10);
+            const [diyNicotineRate, setDiyNicotineRate] = useState('0mg');
+
+            useEffect(() => {
+                if (isDiyCalculatorActive) {
+                    let multiplier = diyVolumeMl / 10;
+                    let nicBonus = 0;
+                    if (diyNicotineRate === '3mg') nicBonus = 2000 * (diyVolumeMl / 10);
+                    if (diyNicotineRate === '6mg') nicBonus = 4000 * (diyVolumeMl / 10);
+                    if (diyNicotineRate === '12mg') nicBonus = 6000 * (diyVolumeMl / 10);
+
+                    const calculatedPrice = Math.round((diyBasePrice10ml * multiplier) + nicBonus);
+                    
+                    if (variantsList.length > 0) {
+                        const updated = [...variantsList];
+                        updated[0].price = calculatedPrice.toString();
+                        updated[0].volume_ml = diyVolumeMl + 'ml';
+                        updated[0].nicotine_level = diyNicotineRate;
+                        setVariantsList(updated);
+                    }
+                }
+            }, [isDiyCalculatorActive, diyBasePrice10ml, diyVolumeMl, diyNicotineRate]);
+
+            const [newBrandName, setNewBrandName] = useState('');
+            const [newBrandDesc, setNewBrandDesc] = useState('');
+            const [newBrandLogo, setNewBrandLogo] = useState('https://images.unsplash.com/photo-1539185441755-769473a23570?auto=format&fit=crop&w=200&q=80');
+            
+            const [editingCatId, setEditingCatId] = useState(null);
+            const [newCatName, setNewCatName] = useState('');
+            const [newCatParent, setNewCatParent] = useState('');
+            const [newCatImage, setNewCatImage] = useState('https://images.unsplash.com/photo-1527661591475-527312dd65f5?auto=format&fit=crop&w=600&q=80');
+
+            const [cart, setCart] = useState([]);
+            const [selectedVariantByProduct, setSelectedVariantByProduct] = useState({});
+            const [quantityByProduct, setQuantityByProduct] = useState({});
+
+            const handleSupabaseLogin = async (e) => {
+                e.preventDefault();
+                setAuthError('');
+                try {
+                    const { error } = await supabaseClient.auth.signInWithPassword({
+                        email: adminEmail,
+                        password: adminPassword,
+                    });
+                    if (error) throw error;
+                    setAdminUnlocked(true);
+                    setShowAuthModal(false);
+                    navigateTo('admin');
+                } catch (err) {
+                    setAuthError(err.message || 'Identifiants invalides.');
+                }
+            };
+
+            const handleLocalImageUpload = (e) => {
+                const file = e.target.files[0];
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onloadend = () => setNewProduct({ ...newProduct, main_image_url: reader.result });
+                    reader.readAsDataURL(file);
+                }
+            };
+
+            const handleVariantImageUpload = (varId, e) => {
+                const file = e.target.files[0];
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onloadend = () => {
+                        setVariantsList(variantsList.map(v => v.id === varId ? { ...v, image_url: reader.result } : v));
+                    };
+                    reader.readAsDataURL(file);
+                }
+            };
+
+            const handleBrandLogoUpload = (e) => {
+                const file = e.target.files[0];
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onloadend = () => setNewBrandLogo(reader.result);
+                    reader.readAsDataURL(file);
+                }
+            };
+
+            const handleLocalCatImageUpload = (e) => {
+                const file = e.target.files[0];
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onloadend = () => setNewCatImage(reader.result);
+                    reader.readAsDataURL(file);
+                }
+            };
+
+            const addVariantField = () => {
+                setVariantsList([...variantsList, { id: 'var_' + Date.now(), price: '', stock: '10', nicotine_level: '0mg', volume_ml: '10ml', ohm_value: '-', color_finish: '-', flavor: 'Autre Saveur', image_url: '' }]);
+            };
+
+            const removeVariantField = (id) => {
+                if (variantsList.length === 1) return alert('Le produit doit avoir au moins une déclinaison.');
+                setVariantsList(variantsList.filter(v => v.id !== id));
+            };
+
+            const handleVariantChange = (id, field, value) => {
+                setVariantsList(variantsList.map(v => v.id === id ? { ...v, [field]: value } : v));
+            };
+
+            const handleSaveProduct = (e) => {
+                e.preventDefault();
+                if (!newProduct.name || variantsList.some(v => !v.price)) return alert('Veuillez remplir le nom et le prix de chaque déclinaison.');
+                
+                const formattedVariants = variantsList.map(v => ({
+                    id: v.id.startsWith('var_') ? 'v_' + Math.random() : v.id,
+                    price: parseFloat(v.price),
+                    stock: parseInt(v.stock) || 10,
+                    nicotine_level: v.nicotine_level,
+                    volume_ml: v.volume_ml,
+                    ohm_value: v.ohm_value,
+                    color_finish: v.color_finish,
+                    flavor: v.flavor || 'Standard',
+                    image_url: v.image_url
+                }));
+
+                if (editingProductId) {
+                    setProducts(products.map(p => p.id === editingProductId ? {
+                        ...p,
+                        name: newProduct.name,
+                        brand_id: newProduct.brand_id,
+                        category_id: newProduct.category_id,
+                        short_description: newProduct.short_description,
+                        box_content: newProduct.box_content,
+                        main_image_url: newProduct.main_image_url,
+                        variants: formattedVariants
+                    } : p));
+                    setEditingProductId(null);
+                    alert('Produit modifié avec succès !');
+                } else {
+                    const productEntry = {
+                        id: Date.now(),
+                        name: newProduct.name,
+                        brand_id: newProduct.brand_id,
+                        category_id: newProduct.category_id,
+                        short_description: newProduct.short_description,
+                        box_content: newProduct.box_content,
+                        main_image_url: newProduct.main_image_url,
+                        variants: formattedVariants
+                    };
+                    setProducts([productEntry, ...products]);
+                    alert('Produit et ses déclinaisons enregistrés avec succès !');
+                }
+
+                setNewProduct({ name: '', brand_id: brands[0]?.id || '', category_id: categories[0]?.id || '', short_description: '', box_content: '', main_image_url: 'https://images.unsplash.com/photo-1539185441755-769473a23570?auto=format&fit=crop&w=600&q=80' });
+                setVariantsList([{ id: 'var_1', price: '', stock: '10', nicotine_level: '0mg', volume_ml: '10ml', ohm_value: '-', color_finish: '-', flavor: 'Classic', image_url: '' }]);
+                setIsDiyCalculatorActive(false);
+            };
+
+            const startEditProduct = (prod) => {
+                setEditingProductId(prod.id);
+                setNewProduct({
+                    name: prod.name,
+                    brand_id: prod.brand_id,
+                    category_id: prod.category_id,
+                    short_description: prod.short_description,
+                    box_content: prod.box_content || '',
+                    main_image_url: prod.main_image_url
+                });
+                setVariantsList(prod.variants.map(v => ({
+                    id: v.id,
+                    price: v.price.toString(),
+                    stock: v.stock.toString(),
+                    nicotine_level: v.nicotine_level || '0mg',
+                    volume_ml: v.volume_ml || '10ml',
+                    ohm_value: v.ohm_value || '-',
+                    color_finish: v.color_finish || '-',
+                    flavor: v.flavor || 'Standard',
+                    image_url: v.image_url || ''
+                })));
+            };
+
+            const deleteProduct = (id) => {
+                if (confirm('Voulez-vous supprimer ce produit du catalogue ?')) {
+                    setProducts(products.filter(p => p.id !== id));
+                }
+            };
+
+            const handleAddBrand = (e) => {
+                e.preventDefault();
+                if (!newBrandName) return;
+                setBrands([...brands, { id: 'b_' + Date.now(), name: newBrandName, slug: newBrandName.toLowerCase().replace(/\s+/g, '-'), description: newBrandDesc, logo_url: newBrandLogo }]);
+                setNewBrandName(''); 
+                setNewBrandDesc('');
+                setNewBrandLogo('https://images.unsplash.com/photo-1539185441755-769473a23570?auto=format&fit=crop&w=200&q=80');
+                alert('Marque ajoutée avec succès !');
+            };
+
+            const handleSaveCategory = (e) => {
+                e.preventDefault();
+                if (!newCatName) return;
+
+                if (editingCatId) {
+                    setCategories(categories.map(c => c.id === editingCatId ? { ...c, name: newCatName, parent_id: newCatParent === '' ? null : newCatParent, image: newCatImage } : c));
+                    setEditingCatId(null);
+                    alert('Rubrique modifiée avec succès !');
+                } else {
+                    setCategories([...categories, { id: 'c_' + Date.now(), parent_id: newCatParent === '' ? null : newCatParent, name: newCatName, slug: newCatName.toLowerCase().replace(/\s+/g, '-'), image: newCatImage }]);
+                    alert('Rubrique créée avec succès !');
+                }
+                setNewCatName('');
+                setNewCatParent('');
+                setNewCatImage('https://images.unsplash.com/photo-1527661591475-527312dd65f5?auto=format&fit=crop&w=600&q=80');
+            };
+
+            const startEditCategory = (cat) => {
+                setEditingCatId(cat.id);
+                setNewCatName(cat.name);
+                setNewCatParent(cat.parent_id || '');
+                setNewCatImage(cat.image);
+            };
+
+            const deleteCategory = (id) => {
+                if (confirm('Voulez-vous vraiment supprimer cette rubrique ? Les sous-rubriques rattachées seront également supprimées.')) {
+                    setCategories(categories.filter(c => c.id !== id && c.parent_id !== id));
+                }
+            };
+
+            const addToCart = (product, variant, qtyOverride = null) => {
+                const qty = qtyOverride !== null ? qtyOverride : (parseInt(quantityByProduct[product.id]) || 1);
+                
+                if (variant.stock < qty) {
+                    return alert(`Stock insuffisant ! Il ne reste que ${variant.stock} exemplaire(s) de cette déclinaison.`);
+                }
+
+                const existingIndex = cart.findIndex(item => item.id === product.id && item.selectedVariant.id === variant.id);
+                
+                if (existingIndex > -1) {
+                    const updated = [...cart];
+                    if (variant.stock < updated[existingIndex].quantity + qty) {
+                        return alert(`Stock insuffisant pour ajouter ${qty} de plus. Stock disponible : ${variant.stock}.`);
+                    }
+                    updated[existingIndex].quantity += qty;
+                    setCart(updated);
+                } else {
+                    setCart([...cart, { ...product, selectedVariant: variant, quantity: qty, cartId: Date.now() }]);
+                }
+                setShowCartModal(true);
+            };
+
+            const processOrderStockReduction = () => {
+                let updatedProducts = products.map(prod => {
+                    let updatedVariants = prod.variants.map(v => {
+                        const cartItem = cart.find(ci => ci.id === prod.id && ci.selectedVariant.id === v.id);
+                        if (cartItem) {
+                            const newStock = Math.max(0, v.stock - cartItem.quantity);
+                            return { ...v, stock: newStock };
+                        }
+                        return v;
+                    });
+                    return { ...prod, variants: updatedVariants };
+                });
+                setProducts(updatedProducts);
+            };
+
+            const cartTotal = cart.reduce((sum, item) => sum + (item.selectedVariant.price * item.quantity), 0);
+
+            const checkoutWhatsApp = () => {
+                processOrderStockReduction();
+                let text = `${settings.whatsappMessage}%0A`;
+                cart.forEach((item) => {
+                    text += `- ${item.name} (${item.quantity}x) [Saveur: ${item.selectedVariant.flavor} | ${item.selectedVariant.volume_ml} | Nic: ${item.selectedVariant.nicotine_level}] - ${(item.selectedVariant.price * item.quantity).toLocaleString()} Ar%0A`;
+                });
+                text += `%0ATotal : *${cartTotal.toLocaleString()} Ar*`;
+                window.open(`https://wa.me/${settings.whatsappNumber.replace(/[^0-9]/g, '')}?text=${text}`, '_blank');
+                setCart([]);
+            };
+
+            const checkoutMessenger = () => {
+                processOrderStockReduction();
+                window.open(settings.messengerUrl, '_blank');
+                setCart([]);
+            };
+
+            const activeCategory = categories.find(c => c.id === selectedCategoryId);
+            const activeBrand = brands.find(b => b.id === selectedBrandId);
+
+            const searchResults = products.filter(p => {
+                if (!searchQuery.trim()) return false;
+                const queryWords = searchQuery.toLowerCase().trim().split(/\s+/);
+                const brand = brands.find(b => b.id === p.brand_id);
+                const category = categories.find(c => c.id === p.category_id);
+                
+                const searchableText = [
+                    p.name,
+                    p.short_description,
+                    p.box_content,
+                    brand ? brand.name : '',
+                    category ? category.name : '',
+                    ...p.variants.map(v => `${v.flavor} ${v.nicotine_level} ${v.volume_ml} ${v.color_finish}`)
+                ].join(' ').toLowerCase();
+
+                return queryWords.every(word => searchableText.includes(word));
+            });
+
+            return (
+                <div className="flex flex-col min-h-screen bg-slate-950 text-slate-100">
+                    {!isAgeVerified && (
+                        <div className="fixed inset-0 bg-slate-950/95 backdrop-blur-xl z-50 flex items-center justify-center p-4">
+                            <div className="bg-slate-900 border border-slate-800 p-8 rounded-3xl max-w-md w-full shadow-2xl text-center space-y-6">
+                                <div className="w-16 h-16 rounded-2xl bg-rose-500/10 border border-rose-500/30 flex items-center justify-center mx-auto text-rose-500 font-black text-2xl">
+                                    18+
+                                </div>
+                                <div className="space-y-2">
+                                    <h2 className="text-xl font-black text-slate-100">Avertissement Légale</h2>
+                                    <p className="text-xs text-slate-400 leading-relaxed">
+                                        Les produits contenus sur <strong className="text-teal-400">Esigara.mg</strong> sont strictement réservés aux personnes majeures.
+                                    </p>
+                                    <p className="text-xs text-slate-300 font-semibold pt-2">
+                                        Certifiez-vous avoir 18 ans ou plus ?
+                                    </p>
+                                </div>
+                                <div className="space-y-2.5">
+                                    <button 
+                                        onClick={confirmAge}
+                                        className="w-full py-3.5 bg-teal-500 hover:bg-teal-400 text-slate-950 font-black text-xs uppercase tracking-wider rounded-2xl shadow-lg shadow-teal-500/25 transition">
+                                        J'ai 18 ans ou plus (Entrer)
+                                    </button>
+                                    <button 
+                                        onClick={() => window.location.href = "https://www.google.com"}
+                                        className="w-full py-3 bg-slate-950 hover:bg-slate-800 text-slate-400 font-bold text-xs rounded-2xl transition border border-slate-800">
+                                        Quitter le site
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    <header className="border-b border-slate-800/80 bg-slate-900/60 sticky top-0 z-45 backdrop-blur-md">
+                        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 flex flex-col sm:flex-row justify-between items-center gap-4">
+                            <div className="flex items-center space-x-3 cursor-pointer w-full sm:w-auto justify-between sm:justify-start" onClick={() => navigateTo('home')}>
+                                <div className="flex items-center space-x-3">
+                                    <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-teal-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-teal-500/20">
+                                        <svg className="w-6 h-6 text-slate-950" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
+                                    </div>
+                                    <div>
+                                        <div className="flex items-center space-x-1.5">
+                                            <span className="text-xl font-extrabold tracking-tight bg-gradient-to-r from-teal-400 via-indigo-400 to-purple-400 bg-clip-text text-transparent">ESIGARA.MG</span>
+                                            <span className="text-[9px] font-black bg-rose-500/20 text-rose-400 border border-rose-500/30 px-1.5 py-0.2 rounded-full">18+</span>
+                                        </div>
+                                        <p className="text-[10px] text-slate-400 font-medium tracking-wider uppercase">Madagascar Vape Shop</p>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <form onSubmit={handleSearchSubmit} className="relative w-full sm:max-w-md">
+                                <input 
+                                    type="text" 
+                                    value={searchQuery}
+                                    onChange={(e) => setSearchQuery(e.target.value)}
+                                    placeholder="Rechercher un produit, une saveur, une marque..." 
+                                    className="w-full bg-slate-950/90 border border-slate-800 rounded-2xl pl-10 pr-24 py-2.5 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:border-teal-500 transition shadow-inner"
+                                />
+                                <svg className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                                <button type="submit" className="absolute right-1.5 top-1.5 bg-teal-500 hover:bg-teal-400 text-slate-950 px-3 py-1.5 rounded-xl text-[11px] font-bold transition">
+                                    Rechercher
+                                </button>
+                            </form>
+
+                            <div className="flex items-center space-x-3 w-full sm:w-auto justify-end">
+                                {currentView !== 'home' && (
+                                    <button onClick={() => navigateTo('home')} className="px-4 py-2 bg-slate-900 border border-slate-800 rounded-xl text-xs font-bold text-slate-300 hover:bg-slate-800">
+                                        &larr; Accueil
+                                    </button>
+                                )}
+                                
+                                <button 
+                                    onClick={() => setShowCartModal(true)}
+                                    className="relative px-4 py-2 bg-teal-500 hover:bg-teal-400 text-slate-950 rounded-2xl font-bold text-xs flex items-center space-x-2 transition shadow-lg shadow-teal-500/20">
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
+                                    <span>Panier</span>
+                                    {cart.length > 0 && (
+                                        <span className="absolute -top-1.5 -right-1.5 bg-rose-500 text-white text-[10px] w-5 h-5 rounded-full flex items-center justify-center font-black shadow">
+                                            {cart.reduce((sum, i) => sum + i.quantity, 0)}
+                                        </span>
+                                    )}
+                                </button>
+                            </div>
+                        </div>
+                    </header>
+
+                    <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8">
+                        {currentView === 'home' && (
+                            <div className="space-y-12 py-6">
+                                <div className="text-center max-w-2xl mx-auto space-y-2">
+                                    <h1 className="text-3xl font-black text-slate-100 tracking-tight">Bienvenue sur Esigara.mg</h1>
+                                    <p className="text-sm text-slate-400">Trouvez instantanément votre matériel, e-liquide ou saveur préférée via la recherche ou le catalogue.</p>
+                                </div>
+
+                                <div className="space-y-4">
+                                    <h2 className="text-sm font-extrabold uppercase tracking-wider text-teal-400">Rubriques Principales</h2>
+                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6">
+                                        {categories.filter(c => !c.parent_id).map(cat => {
+                                            const subcategories = categories.filter(sub => sub.parent_id === cat.id);
+                                            return (
+                                                <div key={cat.id} className="bg-slate-900/90 border border-slate-800/80 rounded-3xl overflow-hidden shadow-xl flex flex-col justify-between hover:border-teal-500/50 transition duration-300 group">
+                                                    <div className="relative h-36 sm:h-44 overflow-hidden bg-slate-950 cursor-pointer" onClick={() => navigateTo('category', cat.id, null)}>
+                                                        <img src={cat.image} alt={cat.name} className="w-full h-full object-cover group-hover:scale-105 transition duration-500 opacity-80 group-hover:opacity-100" />
+                                                        <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/20 to-transparent"></div>
+                                                        <h3 className="absolute bottom-3 left-3 font-black text-sm sm:text-base text-white">{cat.name}</h3>
+                                                    </div>
+                                                    <div className="p-3 sm:p-4 space-y-2">
+                                                        {subcategories.length > 0 && (
+                                                            <div className="flex flex-wrap gap-1 mb-2">
+                                                                {subcategories.map(sub => (
+                                                                    <button key={sub.id} onClick={() => navigateTo('category', sub.id, null)} className="text-[10px] bg-slate-950 border border-slate-800 px-2 py-0.5 rounded-lg text-teal-400 hover:bg-teal-500 hover:text-slate-950 font-semibold transition">
+                                                                        {sub.name}
+                                                                    </button>
+                                                                ))}
+                                                            </div>
+                                                        )}
+                                                        <button onClick={() => navigateTo('category', cat.id, null)} className="w-full py-2 bg-slate-950 hover:bg-teal-500 hover:text-slate-950 border border-slate-800 rounded-xl text-[11px] font-bold transition flex items-center justify-center space-x-1">
+                                                            <span>Explorer</span>
+                                                            <span>&rarr;</span>
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+
+                                <div className="space-y-4 pt-6 border-t border-slate-800">
+                                    <h2 className="text-sm font-extrabold uppercase tracking-wider text-teal-400">Explorer par Marque</h2>
+                                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                                        {brands.map(b => {
+                                            const count = products.filter(p => p.brand_id === b.id).length;
+                                            return (
+                                                <div 
+                                                    key={b.id} 
+                                                    onClick={() => navigateTo('brand', null, b.id)}
+                                                    className="bg-slate-900/90 border border-slate-800 p-5 rounded-3xl flex flex-col items-center text-center cursor-pointer hover:border-teal-500 transition group">
+                                                    <img src={b.logo_url} alt={b.name} className="w-16 h-16 object-cover rounded-2xl border border-slate-800 mb-3 group-hover:scale-105 transition" />
+                                                    <h3 className="font-bold text-sm text-slate-100 group-hover:text-teal-400 transition">{b.name}</h3>
+                                                    <p className="text-[11px] text-slate-400 mt-1">{count} produit(s)</p>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {currentView === 'search' && (
+                            <div className="space-y-8">
+                                <div className="border-b border-slate-800 pb-4">
+                                    <h2 className="text-2xl font-black text-slate-100">Résultats de recherche</h2>
+                                    <p className="text-xs text-teal-400 mt-1">Recherche associée : "{searchQuery}" ({searchResults.length} résultat(s) trouvé(s))</p>
+                                </div>
+
+                                {searchResults.length === 0 ? (
+                                    <div className="text-center py-16 space-y-3 bg-slate-900/40 rounded-3xl border border-slate-800">
+                                        <p className="text-sm text-slate-400">Aucun produit ne correspond à votre recherche.</p>
+                                        <button onClick={() => navigateTo('home')} className="px-4 py-2 bg-teal-500 text-slate-950 font-bold text-xs rounded-xl">Retour à l'accueil</button>
+                                    </div>
+                                ) : (
+                                    <div className="grid grid-cols-2 gap-4 sm:gap-6">
+                                        {searchResults.map(product => {
+                                            const brand = brands.find(b => b.id === product.brand_id);
+                                            const selectedVarId = selectedVariantByProduct[product.id] || product.variants[0]?.id;
+                                            const currentVariant = product.variants.find(v => v.id === selectedVarId) || product.variants[0];
+                                            const displayImage = currentVariant?.image_url || product.main_image_url;
+                                            const currentQty = quantityByProduct[product.id] || 1;
+
+                                            return (
+                                                <div key={product.id} className="bg-slate-900/90 border border-slate-800/80 rounded-3xl overflow-hidden shadow-xl flex flex-col justify-between group hover:border-teal-500/60 transition duration-300">
+                                                    <div>
+                                                        <div className="relative h-36 sm:h-48 overflow-hidden bg-slate-950 cursor-pointer" onClick={() => setSelectedProductModal(product)}>
+                                                            <img src={displayImage} alt={product.name} className="w-full h-full object-cover group-hover:scale-105 transition duration-500" />
+                                                            {brand && <span className="absolute top-2 left-2 bg-slate-950/80 backdrop-blur-md text-teal-400 text-[9px] sm:text-[10px] uppercase font-extrabold px-2 py-0.5 rounded-full border border-slate-800">{brand.name}</span>}
+                                                        </div>
+                                                        <div className="p-3 sm:p-5 space-y-2">
+                                                            <h3 className="font-bold text-xs sm:text-base text-slate-100 cursor-pointer hover:text-teal-400 transition" onClick={() => setSelectedProductModal(product)}>{product.name}</h3>
+                                                            <p className="text-[11px] sm:text-xs text-slate-400 line-clamp-2 leading-relaxed">{product.short_description}</p>
+                                                            <p className="text-[10px] font-bold text-slate-500">Stock dispo : <span className={currentVariant.stock > 0 ? "text-emerald-400" : "text-rose-400"}>{currentVariant.stock}</span></p>
+                                                        </div>
+                                                    </div>
+                                                    <div className="p-3 sm:p-5 pt-0 space-y-3 border-t border-slate-800/60 mt-2">
+                                                        <div className="flex items-center justify-between">
+                                                            <span className="font-black text-teal-400 text-xs sm:text-base">{(currentVariant.price * currentQty).toLocaleString()} Ar</span>
+                                                            <div className="flex items-center space-x-1 sm:space-x-1.5">
+                                                                <button onClick={() => setQuantityByProduct({...quantityByProduct, [product.id]: Math.max(1, currentQty - 1)})} className="w-6 h-6 sm:w-7 sm:h-7 bg-slate-950 border border-slate-800 rounded-lg text-xs font-bold">-</button>
+                                                                <span className="text-xs font-bold text-teal-400 px-1">{currentQty}</span>
+                                                                <button onClick={() => setQuantityByProduct({...quantityByProduct, [product.id]: currentQty + 1})} className="w-6 h-6 sm:w-7 sm:h-7 bg-slate-950 border border-slate-800 rounded-lg text-xs font-bold">+</button>
+                                                            </div>
+                                                        </div>
+                                                        <div className="grid grid-cols-2 gap-1.5">
+                                                            <button onClick={() => setSelectedProductModal(product)} className="w-full py-2 bg-slate-950 hover:bg-slate-800 border border-slate-800 text-slate-300 rounded-xl text-[10px] sm:text-xs font-bold transition">
+                                                                Détails
+                                                            </button>
+                                                            <button onClick={() => addToCart(product, currentVariant, currentQty)} className="w-full py-2 bg-teal-500 hover:bg-teal-400 text-slate-950 rounded-xl text-[10px] sm:text-xs font-bold transition shadow-md shadow-teal-500/20 active:scale-95">
+                                                                Ajouter
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                        {currentView === 'category' && (
+                            <div className="space-y-8">
+                                <div className="border-b border-slate-800 pb-4">
+                                    <h2 className="text-2xl font-black text-slate-100">{activeCategory ? activeCategory.name : 'Catalogue'}</h2>
+                                    <p className="text-xs text-slate-400 mt-1">Découvrez l'ensemble des articles de cette rubrique.</p>
+                                </div>
+
+                                <div className="space-y-10">
+                                    <div className="grid grid-cols-2 gap-4 sm:gap-6">
+                                        {products
+                                            .filter(p => p.category_id === selectedCategoryId || categories.find(c => c.id === p.category_id)?.parent_id === selectedCategoryId)
+                                            .map(product => {
+                                                const brand = brands.find(b => b.id === product.brand_id);
+                                                const selectedVarId = selectedVariantByProduct[product.id] || product.variants[0]?.id;
+                                                const currentVariant = product.variants.find(v => v.id === selectedVarId) || product.variants[0];
+                                                const displayImage = currentVariant?.image_url || product.main_image_url;
+                                                const currentQty = quantityByProduct[product.id] || 1;
+
+                                                return (
+                                                    <div key={product.id} className="bg-slate-900/90 border border-slate-800/80 rounded-3xl overflow-hidden shadow-xl flex flex-col justify-between group hover:border-teal-500/60 transition duration-300">
+                                                        <div>
+                                                            <div className="relative h-36 sm:h-48 overflow-hidden bg-slate-950 cursor-pointer" onClick={() => setSelectedProductModal(product)}>
+                                                                <img src={displayImage} alt={product.name} className="w-full h-full object-cover group-hover:scale-105 transition duration-500" />
+                                                                {brand && <span className="absolute top-2 left-2 bg-slate-950/80 backdrop-blur-md text-teal-400 text-[9px] sm:text-[10px] uppercase font-extrabold px-2 py-0.5 rounded-full border border-slate-800">{brand.name}</span>}
+                                                            </div>
+                                                            <div className="p-3 sm:p-5 space-y-2">
+                                                                <h3 className="font-bold text-xs sm:text-base text-slate-100 cursor-pointer hover:text-teal-400 transition" onClick={() => setSelectedProductModal(product)}>{product.name}</h3>
+                                                                <p className="text-[11px] sm:text-xs text-slate-400 line-clamp-2 leading-relaxed">{product.short_description}</p>
+                                                                <p className="text-[10px] font-bold text-slate-500">Stock dispo : <span className={currentVariant.stock > 0 ? "text-emerald-400" : "text-rose-400"}>{currentVariant.stock}</span></p>
+                                                            </div>
+                                                        </div>
+                                                        <div className="p-3 sm:p-5 pt-0 space-y-3 border-t border-slate-800/60 mt-2">
+                                                            <div className="flex items-center justify-between">
+                                                                <span className="font-black text-teal-400 text-xs sm:text-base">{(currentVariant.price * currentQty).toLocaleString()} Ar</span>
+                                                                <div className="flex items-center space-x-1 sm:space-x-1.5">
+                                                                    <button onClick={() => setQuantityByProduct({...quantityByProduct, [product.id]: Math.max(1, currentQty - 1)})} className="w-6 h-6 sm:w-7 sm:h-7 bg-slate-950 border border-slate-800 rounded-lg text-xs font-bold">-</button>
+                                                                    <span className="text-xs font-bold text-teal-400 px-1">{currentQty}</span>
+                                                                    <button onClick={() => setQuantityByProduct({...quantityByProduct, [product.id]: currentQty + 1})} className="w-6 h-6 sm:w-7 sm:h-7 bg-slate-950 border border-slate-800 rounded-lg text-xs font-bold">+</button>
+                                                                </div>
+                                                            </div>
+                                                            <div className="grid grid-cols-2 gap-1.5">
+                                                                <button onClick={() => setSelectedProductModal(product)} className="w-full py-2 bg-slate-950 hover:bg-slate-800 border border-slate-800 text-slate-300 rounded-xl text-[10px] sm:text-xs font-bold transition">
+                                                                    Détails
+                                                                </button>
+                                                                <button onClick={() => addToCart(product, currentVariant, currentQty)} className="w-full py-2 bg-teal-500 hover:bg-teal-400 text-slate-950 rounded-xl text-[10px] sm:text-xs font-bold transition shadow-md shadow-teal-500/20 active:scale-95">
+                                                                    Ajouter
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {currentView === 'brand' && (
+                            <div className="space-y-8">
+                                <div className="border-b border-slate-800 pb-4 flex items-center space-x-4">
+                                    {activeBrand && <img src={activeBrand.logo_url} alt={activeBrand.name} className="w-14 h-14 object-cover rounded-2xl border border-slate-800" />}
+                                    <div>
+                                        <h2 className="text-2xl font-black text-slate-100">{activeBrand ? activeBrand.name : 'Marque'}</h2>
+                                        <p className="text-xs text-slate-400 mt-1">{activeBrand?.description || 'Tous les produits de cette marque.'}</p>
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-4 sm:gap-6">
+                                    {products
+                                        .filter(p => p.brand_id === selectedBrandId)
+                                        .map(product => {
+                                            const selectedVarId = selectedVariantByProduct[product.id] || product.variants[0]?.id;
+                                            const currentVariant = product.variants.find(v => v.id === selectedVarId) || product.variants[0];
+                                            const displayImage = currentVariant?.image_url || product.main_image_url;
+                                            const currentQty = quantityByProduct[product.id] || 1;
+
+                                            return (
+                                                <div key={product.id} className="bg-slate-900/90 border border-slate-800/80 rounded-3xl overflow-hidden shadow-xl flex flex-col justify-between group">
+                                                    <div>
+                                                        <div className="relative h-36 sm:h-48 overflow-hidden bg-slate-950 cursor-pointer" onClick={() => setSelectedProductModal(product)}>
+                                                            <img src={displayImage} alt={product.name} className="w-full h-full object-cover group-hover:scale-105 transition duration-500" />
+                                                        </div>
+                                                        <div className="p-3 sm:p-5 space-y-2">
+                                                            <h3 className="font-bold text-xs sm:text-base text-slate-100 cursor-pointer hover:text-teal-400" onClick={() => setSelectedProductModal(product)}>{product.name}</h3>
+                                                            <p className="text-[11px] sm:text-xs text-slate-400 line-clamp-2">{product.short_description}</p>
+                                                            <p className="text-[10px] font-bold text-slate-500">Stock dispo : <span className={currentVariant.stock > 0 ? "text-emerald-400" : "text-rose-400"}>{currentVariant.stock}</span></p>
+                                                        </div>
+                                                    </div>
+                                                    <div className="p-3 sm:p-5 pt-0 space-y-3 border-t border-slate-800/60 mt-2">
+                                                        <div className="flex items-center justify-between">
+                                                            <span className="font-black text-teal-400 text-xs sm:text-base">{(currentVariant.price * currentQty).toLocaleString()} Ar</span>
+                                                            <div className="flex items-center space-x-1 sm:space-x-1.5">
+                                                                <button onClick={() => setQuantityByProduct({...quantityByProduct, [product.id]: Math.max(1, currentQty - 1)})} className="w-6 h-6 sm:w-7 sm:h-7 bg-slate-950 border border-slate-800 rounded-lg text-xs font-bold">-</button>
+                                                                <span className="text-xs font-bold text-teal-400 px-1">{currentQty}</span>
+                                                                <button onClick={() => setQuantityByProduct({...quantityByProduct, [product.id]: currentQty + 1})} className="w-6 h-6 sm:w-7 sm:h-7 bg-slate-950 border border-slate-800 rounded-lg text-xs font-bold">+</button>
+                                                            </div>
+                                                        </div>
+                                                        <div className="grid grid-cols-2 gap-1.5">
+                                                            <button onClick={() => setSelectedProductModal(product)} className="w-full py-2 bg-slate-950 hover:bg-slate-800 border border-slate-800 text-slate-300 rounded-xl text-[10px] sm:text-xs font-bold transition">
+                                                                Détails
+                                                            </button>
+                                                            <button onClick={() => addToCart(product, currentVariant, currentQty)} className="w-full py-2 bg-teal-500 hover:bg-teal-400 text-slate-950 rounded-xl text-[10px] sm:text-xs font-bold transition">
+                                                                Ajouter
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                </div>
+                            </div>
+                        )}
+
+                        {currentView === 'admin' && adminUnlocked && (
+                            <div className="space-y-6">
+                                <div className="flex justify-between items-center border-b border-slate-800 pb-4">
+                                    <div className="flex flex-wrap gap-2">
+                                        <button onClick={() => setAdminTab('products')} className={`px-4 py-2 rounded-xl text-xs font-bold transition ${adminTab === 'products' ? 'bg-indigo-600 text-white' : 'bg-slate-900 text-slate-400'}`}>1. Produits & Déclinaisons</button>
+                                        <button onClick={() => setAdminTab('categories')} className={`px-4 py-2 rounded-xl text-xs font-bold transition ${adminTab === 'categories' ? 'bg-indigo-600 text-white' : 'bg-slate-900 text-slate-400'}`}>2. Rubriques & Marques</button>
+                                        <button onClick={() => setAdminTab('settings')} className={`px-4 py-2 rounded-xl text-xs font-bold transition ${adminTab === 'settings' ? 'bg-indigo-600 text-white' : 'bg-slate-900 text-slate-400'}`}>3. WhatsApp / Messenger</button>
+                                    </div>
+                                    <button onClick={() => { setAdminUnlocked(false); navigateTo('home'); }} className="px-3 py-1.5 bg-rose-500/10 text-rose-400 border border-rose-500/30 rounded-xl text-xs font-bold hover:bg-rose-500 hover:text-white transition">
+                                        Verrouiller l'Admin
+                                    </button>
+                                </div>
+
+                                {adminTab === 'products' && (
+                                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                                        <div className="bg-slate-900 border border-slate-800 p-6 rounded-3xl space-y-4">
+                                            <h2 className="text-sm font-bold uppercase text-indigo-400">
+                                                {editingProductId ? 'Modifier le Produit' : 'Ajouter un Produit & Déclinaisons'}
+                                            </h2>
+                                            <form onSubmit={handleSaveProduct} className="space-y-4">
+                                                <div>
+                                                    <label className="text-xs text-slate-400 font-bold uppercase">Nom du Produit</label>
+                                                    <input type="text" value={newProduct.name} onChange={e=>setNewProduct({...newProduct, name: e.target.value})} placeholder="ex: E-liquide DIY / Vaporesso" className="w-full mt-1 bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-sm" required />
+                                                </div>
+                                                <div className="grid grid-cols-2 gap-2">
+                                                    <div>
+                                                        <label className="text-xs text-slate-400 font-bold uppercase">Marque</label>
+                                                        <select value={newProduct.brand_id} onChange={e=>setNewProduct({...newProduct, brand_id: e.target.value})} className="w-full mt-1 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm">
+                                                            {brands.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+                                                        </select>
+                                                    </div>
+                                                    <div>
+                                                        <label className="text-xs text-slate-400 font-bold uppercase">Rubrique</label>
+                                                        <select value={newProduct.category_id} onChange={e=>setNewProduct({...newProduct, category_id: e.target.value})} className="w-full mt-1 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm">
+                                                            {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                                                        </select>
+                                                    </div>
+                                                </div>
+                                                <div>
+                                                    <label className="text-xs text-slate-400 font-bold uppercase">Description rapide</label>
+                                                    <input type="text" value={newProduct.short_description} onChange={e=>setNewProduct({...newProduct, short_description: e.target.value})} placeholder="Résumé..." className="w-full mt-1 bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-sm" />
+                                                </div>
+
+                                                <div>
+                                                    <label className="text-xs text-teal-400 font-bold uppercase">Contenu de la boîte (Box Content)</label>
+                                                    <textarea value={newProduct.box_content} onChange={e=>setNewProduct({...newProduct, box_content: e.target.value})} placeholder="ex: 1x Batterie, 2x Résistances..." className="w-full mt-1 bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-sm" rows="2"></textarea>
+                                                </div>
+
+                                                <div className="bg-slate-950 border border-teal-500/40 p-4 rounded-2xl space-y-3">
+                                                    <div className="flex items-center justify-between">
+                                                        <span className="text-xs font-bold text-teal-400 uppercase">Calculateur DIY (Volume & Nicotine)</span>
+                                                        <input type="checkbox" checked={isDiyCalculatorActive} onChange={e=>setIsDiyCalculatorActive(e.target.checked)} className="w-4 h-4 accent-teal-500 cursor-pointer" />
+                                                    </div>
+                                                    {isDiyCalculatorActive && (
+                                                        <div className="space-y-2.5 pt-1 text-xs">
+                                                            <div>
+                                                                <label className="text-[10px] text-slate-400 font-bold">Prix de base par 10ml (Ar)</label>
+                                                                <input type="number" value={diyBasePrice10ml} onChange={e=>setDiyBasePrice10ml(parseFloat(e.target.value) || 0)} className="w-full mt-1 bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1.5" />
+                                                            </div>
+                                                            <div className="grid grid-cols-2 gap-2">
+                                                                <div>
+                                                                    <label className="text-[10px] text-slate-400 font-bold">Quantité / Volume</label>
+                                                                    <select value={diyVolumeMl} onChange={e=>setDiyVolumeMl(parseInt(e.target.value))} className="w-full mt-1 bg-slate-900 border border-slate-800 rounded-lg px-2 py-1.5">
+                                                                        <option value={10}>10 ml</option>
+                                                                        <option value={30}>30 ml</option>
+                                                                        <option value={50}>50 ml</option>
+                                                                        <option value={100}>100 ml</option>
+                                                                    </select>
+                                                                </div>
+                                                                <div>
+                                                                    <label className="text-[10px] text-slate-400 font-bold">Taux de Nicotine</label>
+                                                                    <select value={diyNicotineRate} onChange={e=>setDiyNicotineRate(e.target.value)} className="w-full mt-1 bg-slate-900 border border-slate-800 rounded-lg px-2 py-1.5">
+                                                                        <option value="0mg">0 mg</option>
+                                                                        <option value="3mg">3 mg</option>
+                                                                        <option value="6mg">6 mg</option>
+                                                                        <option value="12mg">12 mg</option>
+                                                                    </select>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                </div>
+
+                                                <div>
+                                                    <label className="text-xs text-slate-400 font-bold uppercase">Photo Principale</label>
+                                                    <input type="file" accept="image/*" onChange={handleLocalImageUpload} className="w-full mt-1 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-400" />
+                                                    {newProduct.main_image_url && <img src={newProduct.main_image_url} alt="Aperçu" className="w-16 h-16 object-cover rounded-xl mt-2 border border-slate-800" />}
+                                                </div>
+
+                                                <div className="border-t border-slate-800 pt-3 space-y-3">
+                                                    <div className="flex justify-between items-center">
+                                                        <span className="text-xs font-bold text-teal-400 uppercase">Déclinaisons & Saveurs</span>
+                                                        <button type="button" onClick={addVariantField} className="px-2.5 py-1 bg-teal-500/10 text-teal-400 border border-teal-500/30 rounded-lg text-xs font-bold">+ Variante</button>
+                                                    </div>
+
+                                                    {variantsList.map((v, index) => (
+                                                        <div key={v.id} className="bg-slate-950 border border-slate-800 p-3 rounded-xl space-y-2">
+                                                            <div className="flex justify-between items-center text-[11px] text-slate-400 font-bold">
+                                                                <span>Variante #{index + 1}</span>
+                                                                {variantsList.length > 1 && <button type="button" onClick={() => removeVariantField(v.id)} className="text-rose-400">Supprimer</button>}
+                                                            </div>
+                                                            <div className="grid grid-cols-3 gap-2">
+                                                                <div>
+                                                                    <label className="text-[10px] text-slate-400">Prix (Ar)</label>
+                                                                    <input type="number" value={v.price} onChange={e=>handleVariantChange(v.id, 'price', e.target.value)} placeholder="75000" className="w-full bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs" required />
+                                                                </div>
+                                                                <div>
+                                                                    <label className="text-[10px] text-slate-400">Stock</label>
+                                                                    <input type="number" value={v.stock} onChange={e=>handleVariantChange(v.id, 'stock', e.target.value)} placeholder="10" className="w-full bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs" required />
+                                                                </div>
+                                                                <div>
+                                                                    <label className="text-[10px] text-slate-400">Saveur</label>
+                                                                    <input type="text" value={v.flavor} onChange={e=>handleVariantChange(v.id, 'flavor', e.target.value)} placeholder="Fraise" className="w-full bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs" />
+                                                                </div>
+                                                            </div>
+                                                            <div className="grid grid-cols-3 gap-2">
+                                                                <div>
+                                                                    <label className="text-[10px] text-slate-400">Nicotine</label>
+                                                                    <select value={v.nicotine_level} onChange={e=>handleVariantChange(v.id, 'nicotine_level', e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-lg px-2 py-1.5 text-xs">
+                                                                        <option value="-">-</option>
+                                                                        <option value="0mg">0mg</option>
+                                                                        <option value="3mg">3mg</option>
+                                                                        <option value="6mg">6mg</option>
+                                                                        <option value="12mg">12mg</option>
+                                                                    </select>
+                                                                </div>
+                                                                <div>
+                                                                    <label className="text-[10px] text-slate-400">Volume</label>
+                                                                    <select value={v.volume_ml} onChange={e=>handleVariantChange(v.id, 'volume_ml', e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-lg px-2 py-1.5 text-xs">
+                                                                        <option value="-">-</option>
+                                                                        <option value="10ml">10ml</option>
+                                                                        <option value="30ml">30ml</option>
+                                                                        <option value="50ml">50ml</option>
+                                                                        <option value="100ml">100ml</option>
+                                                                    </select>
+                                                                </div>
+                                                                <div>
+                                                                    <label className="text-[10px] text-slate-400">Coloris</label>
+                                                                    <input type="text" value={v.color_finish} onChange={e=>handleVariantChange(v.id, 'color_finish', e.target.value)} placeholder="Black" className="w-full bg-slate-900 border border-slate-800 rounded-lg px-2 py-1.5 text-xs" />
+                                                                </div>
+                                                            </div>
+                                                            <div>
+                                                                <label className="text-[10px] text-slate-400">Image spécifique</label>
+                                                                <input type="file" accept="image/*" onChange={(e) => handleVariantImageUpload(v.id, e)} className="w-full bg-slate-900 border border-slate-800 rounded-lg px-2 py-1 text-[11px] text-slate-400" />
+                                                                {v.image_url && <img src={v.image_url} alt="Variante" className="w-10 h-10 object-cover rounded mt-1 border border-slate-800" />}
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+
+                                                <div className="flex gap-2">
+                                                    <button type="submit" className="flex-1 py-3 bg-indigo-600 hover:bg-indigo-500 rounded-xl font-bold text-xs uppercase tracking-wider">
+                                                        {editingProductId ? 'Mettre à jour' : 'Enregistrer'}
+                                                    </button>
+                                                    {editingProductId && (
+                                                        <button type="button" onClick={() => setEditingProductId(null)} className="px-4 py-3 bg-slate-800 rounded-xl text-xs font-bold">Annuler</button>
+                                                    )}
+                                                </div>
+                                            </form>
+                                        </div>
+
+                                        <div className="lg:col-span-2 bg-slate-900 border border-slate-800 p-6 rounded-3xl">
+                                            <h2 className="text-sm font-bold uppercase text-indigo-400 mb-4">Catalogue Actuel ({products.length})</h2>
+                                            <div className="space-y-3 max-h-[600px] overflow-y-auto pr-2">
+                                                {products.map(p => (
+                                                    <div key={p.id} className="bg-slate-950 border border-slate-800 p-4 rounded-xl flex items-center justify-between">
+                                                        <div className="flex items-center space-x-3">
+                                                            <img src={p.main_image_url} alt={p.name} className="w-12 h-12 object-cover rounded-lg border border-slate-800" />
+                                                            <div>
+                                                                <h3 className="font-bold text-sm text-slate-200">{p.name}</h3>
+                                                                <p className="text-xs text-slate-400">{p.variants.length} variante(s) - Stock total : {p.variants.reduce((sum, v)=>sum+v.stock, 0)}</p>
+                                                            </div>
+                                                        </div>
+                                                        <div className="flex items-center space-x-2">
+                                                            <button onClick={() => startEditProduct(p)} className="px-2.5 py-1 bg-amber-500/10 text-amber-400 border border-amber-500/30 rounded-lg text-xs font-bold">Modifier</button>
+                                                            <button onClick={() => deleteProduct(p.id)} className="px-2.5 py-1 bg-rose-500/10 text-rose-400 border border-rose-500/30 rounded-lg text-xs font-bold">Supprimer</button>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {adminTab === 'categories' && (
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                        <div className="bg-slate-900 border border-slate-800 p-6 rounded-3xl space-y-4">
+                                            <h3 className="text-sm font-bold uppercase text-indigo-400">
+                                                {editingCatId ? 'Modifier la Rubrique' : 'Créer une Rubrique'}
+                                            </h3>
+                                            <form onSubmit={handleSaveCategory} className="space-y-3">
+                                                <div>
+                                                    <label className="text-xs text-slate-400 font-bold uppercase">Nom de la rubrique</label>
+                                                    <input type="text" value={newCatName} onChange={e=>setNewCatName(e.target.value)} placeholder="ex: E-Liquides, Pods..." className="w-full mt-1 bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-sm" required />
+                                                </div>
+                                                <div>
+                                                    <label className="text-xs text-slate-400 font-bold uppercase">Rubrique Parente</label>
+                                                    <select value={newCatParent} onChange={e=>setNewCatParent(e.target.value)} className="w-full mt-1 bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-sm">
+                                                        <option value="">Aucune (Rubrique principale)</option>
+                                                        {categories.filter(c => !c.parent_id && c.id !== editingCatId).map(c => <option key={c.id} value={c.id}>Sous-rubrique de : {c.name}</option>)}
+                                                    </select>
+                                                </div>
+                                                <div>
+                                                    <label className="text-xs text-slate-400 font-bold uppercase">Image de la Rubrique</label>
+                                                    <input type="file" accept="image/*" onChange={handleLocalCatImageUpload} className="w-full mt-1 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-400" />
+                                                    {newCatImage && <img src={newCatImage} alt="Aperçu" className="w-16 h-16 object-cover rounded-xl mt-2 border border-slate-800" />}
+                                                </div>
+                                                <div className="flex gap-2 pt-2">
+                                                    <button type="submit" className="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-500 rounded-xl font-bold text-xs uppercase">
+                                                        {editingCatId ? 'Mettre à jour' : 'Créer la rubrique'}
+                                                    </button>
+                                                    {editingCatId && (
+                                                        <button type="button" onClick={() => { setEditingCatId(null); setNewCatName(''); setNewCatParent(''); }} className="px-4 py-2.5 bg-slate-800 rounded-xl text-xs font-bold">Annuler</button>
+                                                    )}
+                                                </div>
+                                            </form>
+                                        </div>
+
+                                        <div className="bg-slate-900 border border-slate-800 p-6 rounded-3xl space-y-4">
+                                            <h3 className="text-sm font-bold uppercase text-indigo-400">Rubriques Existantes ({categories.length})</h3>
+                                            <div className="space-y-3 max-h-[450px] overflow-y-auto pr-1">
+                                                {categories.map(cat => {
+                                                    const parent = categories.find(p => p.id === cat.parent_id);
+                                                    return (
+                                                        <div key={cat.id} className="bg-slate-950 border border-slate-800 p-3.5 rounded-2xl flex items-center justify-between">
+                                                            <div className="flex items-center space-x-3">
+                                                                <img src={cat.image} alt={cat.name} className="w-10 h-10 object-cover rounded-xl border border-slate-800" />
+                                                                <div>
+                                                                    <h4 className="font-bold text-xs text-slate-200">{cat.name}</h4>
+                                                                    <p className="text-[10px] text-slate-500">
+                                                                        {parent ? `Sous-rubrique de : ${parent.name}` : 'Rubrique Principale'}
+                                                                    </p>
+                                                                </div>
+                                                            </div>
+                                                            <div className="flex items-center space-x-1.5">
+                                                                <button onClick={() => startEditCategory(cat)} className="px-2.5 py-1 bg-amber-500/10 text-amber-400 border border-amber-500/30 rounded-lg text-[11px] font-bold">Modifier</button>
+                                                                <button onClick={() => deleteCategory(cat.id)} className="px-2.5 py-1 bg-rose-500/10 text-rose-400 border border-rose-500/30 rounded-lg text-[11px] font-bold">Supprimer</button>
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {adminTab === 'settings' && (
+                                    <div className="bg-slate-900 border border-slate-800 p-8 rounded-3xl max-w-xl mx-auto space-y-4">
+                                        <h3 className="text-sm font-bold uppercase text-indigo-400">Paramètres WhatsApp & Messenger</h3>
+                                        <div>
+                                            <label className="text-xs text-slate-400 font-bold uppercase">Numéro WhatsApp (+261...)</label>
+                                            <input type="text" value={settings.whatsappNumber} onChange={e=>setSettings({...settings, whatsappNumber: e.target.value})} className="w-full mt-1 bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-sm" />
+                                        </div>
+                                        <div>
+                                            <label className="text-xs text-slate-400 font-bold uppercase">Message pré-rempli</label>
+                                            <textarea value={settings.whatsappMessage} onChange={e=>setSettings({...settings, whatsappMessage: e.target.value})} className="w-full mt-1 bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-sm" rows="2"></textarea>
+                                        </div>
+                                        <div>
+                                            <label className="text-xs text-slate-400 font-bold uppercase">Lien Messenger</label>
+                                            <input type="text" value={settings.messengerUrl} onChange={e=>setSettings({...settings, messengerUrl: e.target.value})} className="w-full mt-1 bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-sm" />
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                    </main>
+
+                    {selectedProductModal && (() => {
+                        const product = selectedProductModal;
+                        const selectedVarId = selectedVariantByProduct[product.id] || product.variants[0]?.id;
+                        const currentVariant = product.variants.find(v => v.id === selectedVarId) || product.variants[0];
+                        const displayImage = currentVariant?.image_url || product.main_image_url;
+                        const currentQty = quantityByProduct[product.id] || 1;
+                        const brand = brands.find(b => b.id === product.brand_id);
+
+                        return (
+                            <div className="fixed inset-0 bg-slate-950/85 backdrop-blur-md z-50 flex items-center justify-center p-4">
+                                <div className="bg-slate-900 border border-slate-800 p-6 sm:p-8 rounded-3xl max-w-xl w-full shadow-2xl space-y-6 max-h-[90vh] overflow-y-auto">
+                                    <div className="flex justify-between items-center border-b border-slate-800 pb-3">
+                                        <div>
+                                            {brand && <span className="text-[10px] bg-teal-500/20 text-teal-400 px-2.5 py-0.5 rounded-full font-bold uppercase">{brand.name}</span>}
+                                            <h3 className="text-lg font-black text-slate-100 mt-1">{product.name}</h3>
+                                        </div>
+                                        <button onClick={() => setSelectedProductModal(null)} className="text-slate-400 hover:text-white font-bold text-lg">✕</button>
+                                    </div>
+
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                        <img src={displayImage} alt={product.name} className="w-full h-48 sm:h-56 object-cover rounded-2xl border border-slate-800" />
+                                        <div className="space-y-3">
+                                            <p className="text-xs text-slate-300 leading-relaxed">{product.short_description}</p>
+                                            <div className="text-teal-400 font-black text-xl">{(currentVariant.price * currentQty).toLocaleString()} Ar</div>
+                                            <p className="text-xs font-bold text-slate-400">Stock disponible : <span className={currentVariant.stock > 0 ? "text-emerald-400" : "text-rose-400"}>{currentVariant.stock}</span></p>
+                                            {currentVariant.flavor && currentVariant.flavor !== '-' && (
+                                                <div className="text-xs bg-slate-950 border border-slate-800 px-3 py-1.5 rounded-xl">
+                                                    <span className="text-slate-400 font-bold">Saveur : </span>
+                                                    <span className="text-teal-300 font-extrabold">{currentVariant.flavor}</span>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    {product.variants.length > 0 && (
+                                        <div className="space-y-1.5 pt-2 border-t border-slate-800">
+                                            <span className="text-xs font-bold text-slate-400 uppercase">Variantes / Saveurs disponibles :</span>
+                                            <div className="flex flex-wrap gap-2">
+                                                {product.variants.map(v => (
+                                                    <button 
+                                                        key={v.id} 
+                                                        onClick={() => setSelectedVariantByProduct({...selectedVariantByProduct, [product.id]: v.id})}
+                                                        className={`text-xs px-3 py-2 rounded-xl border font-semibold transition flex flex-col items-start ${currentVariant.id === v.id ? 'bg-teal-500 text-slate-950 border-teal-400 shadow-lg' : 'bg-slate-950 border-slate-800 text-slate-300'}`}>
+                                                        <span className="font-bold">{v.flavor !== '-' ? v.flavor : 'Standard'} (Stock: {v.stock})</span>
+                                                        <span className="text-[10px] opacity-80">{v.volume_ml !== '-' ? v.volume_ml : ''} {v.nicotine_level !== '-' ? '• Nic: ' + v.nicotine_level : ''} {v.color_finish !== '-' ? '• Color: ' + v.color_finish : ''}</span>
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {product.box_content && (
+                                        <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 space-y-1.5">
+                                            <h4 className="text-xs font-black uppercase text-teal-400 tracking-wider">Contenu de la boîte</h4>
+                                            <p className="text-xs text-slate-300 whitespace-pre-line leading-relaxed">{product.box_content}</p>
+                                        </div>
+                                    )}
+
+                                    <div className="flex items-center justify-between pt-2 border-t border-slate-800">
+                                        <div className="flex items-center space-x-3">
+                                            <span className="text-xs font-bold text-slate-400 uppercase">Quantité :</span>
+                                            <div className="flex items-center space-x-2">
+                                                <button onClick={() => setQuantityByProduct({...quantityByProduct, [product.id]: Math.max(1, currentQty - 1)})} className="w-8 h-8 bg-slate-950 border border-slate-800 rounded-xl text-sm font-bold">-</button>
+                                                <span className="text-sm font-bold text-teal-400 px-2">{currentQty}</span>
+                                                <button onClick={() => setQuantityByProduct({...quantityByProduct, [product.id]: currentQty + 1})} className="w-8 h-8 bg-slate-950 border border-slate-800 rounded-xl text-sm font-bold">+</button>
+                                            </div>
+                                        </div>
+                                        <button 
+                                            onClick={() => { addToCart(product, currentVariant, currentQty); setSelectedProductModal(null); }}
+                                            className="px-6 py-3 bg-teal-500 hover:bg-teal-400 text-slate-950 rounded-2xl text-xs font-black uppercase tracking-wider transition shadow-lg shadow-teal-500/25">
+                                            Ajouter au panier
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        );
+                    })()}
+
+                    {showCartModal && (
+                        <div className="fixed inset-0 bg-slate-950/85 backdrop-blur-md z-50 flex items-center justify-center p-4">
+                            <div className="bg-slate-900 border border-slate-800 p-6 sm:p-8 rounded-3xl max-w-lg w-full shadow-2xl space-y-5">
+                                <div className="flex justify-between items-center border-b border-slate-800 pb-3">
+                                    <h3 className="text-base font-black text-slate-100 uppercase tracking-wider flex items-center space-x-2">
+                                        <span>Mon Panier</span>
+                                        <span className="text-xs bg-teal-500/20 text-teal-400 px-2 py-0.5 rounded-full">{cart.reduce((sum, i) => sum + i.quantity, 0)}</span>
+                                    </h3>
+                                    <button onClick={() => setShowCartModal(false)} className="text-slate-400 hover:text-white font-bold text-lg">✕</button>
+                                </div>
+
+                                {cart.length === 0 ? (
+                                    <div className="text-center py-8">
+                                        <p className="text-xs text-slate-500">Votre panier est vide pour le moment.</p>
+                                    </div>
+                                ) : (
+                                    <div className="space-y-3 max-h-64 overflow-y-auto pr-1">
+                                        {cart.map(item => (
+                                            <div key={item.cartId} className="bg-slate-950 p-3 rounded-2xl border border-slate-800 flex justify-between items-center text-xs">
+                                                <div>
+                                                    <p className="font-bold text-slate-200">{item.name}</p>
+                                                    <p className="text-slate-400 mt-0.5">
+                                                        {item.quantity}x [Saveur: {item.selectedVariant.flavor} | {item.selectedVariant.volume_ml} | Nic: {item.selectedVariant.nicotine_level}] - {(item.selectedVariant.price * item.quantity).toLocaleString()} Ar
+                                                    </p>
+                                                </div>
+                                                <button onClick={() => setCart(cart.filter(c => c.cartId !== item.cartId))} className="w-6 h-6 rounded-lg bg-rose-500/10 text-rose-400 hover:bg-rose-500 hover:text-white flex items-center justify-center font-bold transition">×</button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+
+                                <div className="border-t border-slate-800 pt-3 flex justify-between items-center font-black text-base">
+                                    <span className="text-slate-400">Total :</span>
+                                    <span className="text-teal-400">{cartTotal.toLocaleString()} Ar</span>
+                                </div>
+
+                                <div className="space-y-2.5 pt-2">
+                                    <button 
+                                        onClick={() => { checkoutWhatsApp(); setShowCartModal(false); }}
+                                        disabled={cart.length === 0}
+                                        className="w-full py-3.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 text-white rounded-2xl font-bold text-xs uppercase tracking-wider transition shadow-lg shadow-emerald-600/25 flex items-center justify-center space-x-2">
+                                        <span>Commander via WhatsApp</span>
+                                    </button>
+                                    <button 
+                                        onClick={() => { checkoutMessenger(); setShowCartModal(false); }}
+                                        disabled={cart.length === 0}
+                                        className="w-full py-3.5 bg-blue-600 hover:bg-blue-500 disabled:opacity-40 text-white rounded-2xl font-bold text-xs uppercase tracking-wider transition shadow-lg shadow-blue-600/25 flex items-center justify-center space-x-2">
+                                        <span>Commander via Messenger</span>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    <footer className="border-t border-slate-800/80 bg-slate-900/40 py-6 text-center text-xs text-slate-500 mt-16 flex flex-col items-center justify-center space-y-2">
+                        <p>Esigara.mg — Solutions E-commerce & Vape à Madagascar.</p>
+                        <button onClick={() => setShowAuthModal(true)} className="text-[10px] text-slate-700 hover:text-slate-400 transition">
+                            Connexion Administrateur Supabase
+                        </button>
+                    </footer>
+
+                    {showAuthModal && (
+                        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
+                            <div className="bg-slate-900 border border-slate-800 p-8 rounded-3xl max-w-md w-full shadow-2xl space-y-5">
+                                <div className="flex justify-between items-center">
+                                    <h3 className="text-base font-black text-indigo-400 uppercase tracking-wider">Connexion Administrateur</h3>
+                                    <button onClick={() => setShowAuthModal(false)} className="text-slate-400 hover:text-white font-bold">✕</button>
+                                </div>
+                                <form onSubmit={handleSupabaseLogin} className="space-y-4">
+                                    <div>
+                                        <label className="text-[11px] font-bold text-slate-400 uppercase">Email (Login Supabase)</label>
+                                        <input type="email" value={adminEmail} onChange={e=>setAdminEmail(e.target.value)} placeholder="admin@esigara.mg" className="w-full mt-1 bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-sm" required />
+                                    </div>
+                                    <div>
+                                        <label className="text-[11px] font-bold text-slate-400 uppercase">Mot de passe</label>
+                                        <input type="password" value={adminPassword} onChange={e=>setAdminPassword(e.target.value)} placeholder="••••••••" className="w-full mt-1 bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-sm" required />
+                                    </div>
+                                    <button type="submit" className="w-full py-3 bg-indigo-600 hover:bg-indigo-500 rounded-xl font-bold text-xs uppercase tracking-wider transition shadow-lg shadow-indigo-600/30">
+                                        Se connecter
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            );
+        }
+
+        ReactDOM.render(<App />, document.getElementById('root'));
+    </script>
+</body>
+</html>
