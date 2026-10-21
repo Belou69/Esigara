@@ -158,7 +158,6 @@
                 name: '', brand_id: '', category_id: '', short_description: '', box_content: '', main_image_url: 'https://images.unsplash.com/photo-1539185441755-769473a23570?auto=format&fit=crop&w=600&q=80'
             });
             
-            // Déclinaisons : seul le PRIX est obligatoire
             const [variantsList, setVariantsList] = useState([
                 { id: 'var_1', price: '', stock: '0', nicotine_level: '-', volume_ml: '-', ohm_value: '-', color_finish: '-', flavor: '-', image_url: '' }
             ]);
@@ -194,7 +193,6 @@
             const [newBrandDesc, setNewBrandDesc] = useState('');
             const [newBrandLogo, setNewBrandLogo] = useState('https://images.unsplash.com/photo-1539185441755-769473a23570?auto=format&fit=crop&w=200&q=80');
             
-            // Gestion avancée des Rubriques et Sous-rubriques
             const [editingCatId, setEditingCatId] = useState(null);
             const [newCatName, setNewCatName] = useState('');
             const [newCatParent, setNewCatParent] = useState('');
@@ -379,7 +377,6 @@
                 }
             };
 
-            // Création & Modification des Rubriques et Sous-Rubriques
             const handleSaveCategory = async (e) => {
                 e.preventDefault();
                 if (!newCatName) return;
@@ -399,7 +396,7 @@
                 setNewCatName('');
                 setNewCatParent('');
                 setNewCatImage('https://images.unsplash.com/photo-1527661591475-527312dd65f5?auto=format&fit=crop&w=600&q=80');
-                alert(newCatParent ? 'Sous-rubrique enregistrée !' : 'Rubrique principale enregistrée !');
+                alert(newCatParent ? 'Dossier / sous-rubrique enregistré !' : 'Rubrique principale enregistrée !');
                 loadDataFromSupabase();
             };
 
@@ -418,10 +415,174 @@
             };
 
             const deleteCategory = async (id) => {
-                if (confirm('Voulez-vous supprimer cette rubrique ? Les sous-rubriques éventuellement rattachées seront également impactées.')) {
+                if (confirm('Voulez-vous supprimer cette rubrique ou ce dossier ? Les sous-dossiers et éléments rattachés seront également impactés.')) {
                     await supabaseClient.from('categories').delete().eq('id', id);
                     loadDataFromSupabase();
                 }
+            };
+
+            const getAllChildCategoryIds = (catId) => {
+                let ids = [catId];
+                const directChildren = categories.filter(c => c.parent_id === catId);
+                directChildren.forEach(child => {
+                    ids = ids.concat(getAllChildCategoryIds(child.id));
+                });
+                return ids;
+            };
+
+            const CategoryTreeItem = ({ category, depth = 0 }) => {
+                const subCats = categories.filter(sub => sub.parent_id === category.id);
+                return (
+                    <div className="bg-slate-950 border border-slate-800 rounded-xl p-3 space-y-2">
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center space-x-2">
+                                <div className="w-8 h-8 rounded-lg border border-slate-800 bg-white flex items-center justify-center p-0.5">
+                                    <img src={category.image} alt={category.name} className="max-w-full max-h-full object-contain" />
+                                </div>
+                                <span className={`font-extrabold text-xs ${depth === 0 ? 'text-teal-400' : 'text-slate-200'}`}>
+                                    {depth > 0 && <span className="text-slate-500 mr-1">↳</span>}
+                                    {category.name}
+                                </span>
+                            </div>
+                            <div className="flex items-center space-x-1">
+                                <button onClick={() => startAddSubCategory(category)} className="px-2 py-1 bg-teal-500/10 text-teal-400 rounded-lg text-[10px] font-bold border border-teal-500/20">
+                                    + Dossier enfant
+                                </button>
+                                <button onClick={() => startEditCategory(category)} className="px-2 py-1 bg-amber-500/10 text-amber-400 rounded-lg text-[10px] font-bold">
+                                    Editer
+                                </button>
+                                <button onClick={() => deleteCategory(category.id)} className="px-2 py-1 bg-rose-500/10 text-rose-400 rounded-lg text-[10px] font-bold">
+                                    Supprimer
+                                </button>
+                            </div>
+                        </div>
+
+                        {subCats.length > 0 && (
+                            <div className="pl-4 border-l-2 border-slate-800 space-y-2 pt-1">
+                                {subCats.map(sub => (
+                                    <CategoryTreeItem key={sub.id} category={sub} depth={depth + 1} />
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                );
+            };
+
+            // COMPOSANT RÉUTILISABLE CARTE PRODUIT : Affiche toujours la saveur, nicotine, volume, ohm, coloris
+            const ProductCard = ({ product }) => {
+                const brand = brands.find(b => b.id === product.brand_id);
+                const selectedVarId = selectedVariantByProduct[product.id] || product.variants[0]?.id;
+                const currentVariant = product.variants.find(v => v.id === selectedVarId) || product.variants[0] || {};
+                const displayImage = currentVariant?.image_url || product.main_image_url;
+                const currentQty = quantityByProduct[product.id] || 1;
+
+                const hasMultipleVariants = product.variants && product.variants.length > 1;
+
+                return (
+                    <div className="bg-slate-900/90 border border-slate-800/80 rounded-3xl overflow-hidden shadow-xl flex flex-col justify-between group hover:border-teal-500/60 transition duration-300">
+                        <div>
+                            {/* Image avec fond blanc */}
+                            <div className="relative h-44 sm:h-56 overflow-hidden bg-white flex items-center justify-center p-3 cursor-pointer" onClick={() => setSelectedProductModal(product)}>
+                                <img src={displayImage} alt={product.name} className="max-w-full max-h-full object-contain group-hover:scale-105 transition duration-500" />
+                                {brand && <span className="absolute top-2 left-2 bg-slate-950/90 backdrop-blur-md text-teal-400 text-[9px] sm:text-[10px] uppercase font-extrabold px-2 py-0.5 rounded-full border border-slate-800">{brand.name}</span>}
+                            </div>
+                            
+                            <div className="p-3 sm:p-5 space-y-2.5">
+                                <h3 className="font-bold text-xs sm:text-base text-slate-100 cursor-pointer hover:text-teal-400 transition" onClick={() => setSelectedProductModal(product)}>{product.name}</h3>
+                                {product.short_description && (
+                                    <p className="text-[11px] sm:text-xs text-slate-400 line-clamp-2 leading-relaxed">{product.short_description}</p>
+                                )}
+
+                                {/* S'il y a plusieurs déclinaisons : Sélecteurs cliquables */}
+                                {hasMultipleVariants ? (
+                                    <div className="pt-2 space-y-1.5 border-t border-slate-800/60">
+                                        <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block">Déclinaisons :</span>
+                                        <div className="flex flex-wrap gap-1 max-h-20 overflow-y-auto pr-1">
+                                            {product.variants.map((v, idx) => {
+                                                const isSelected = v.id === currentVariant.id;
+                                                const labels = [];
+                                                if (v.volume_ml && v.volume_ml !== '-') labels.push(v.volume_ml);
+                                                if (v.nicotine_level && v.nicotine_level !== '-') labels.push(v.nicotine_level);
+                                                if (v.flavor && v.flavor !== '-') labels.push(v.flavor);
+                                                if (v.ohm_value && v.ohm_value !== '-') labels.push(v.ohm_value);
+                                                if (v.color_finish && v.color_finish !== '-') labels.push(v.color_finish);
+
+                                                const labelText = labels.length > 0 ? labels.join(' • ') : `Option #${idx + 1}`;
+
+                                                return (
+                                                    <button
+                                                        key={v.id}
+                                                        onClick={() => setSelectedVariantByProduct({ ...selectedVariantByProduct, [product.id]: v.id })}
+                                                        className={`text-[9px] sm:text-[10px] px-2 py-1 rounded-lg border font-semibold transition ${
+                                                            isSelected 
+                                                                ? 'bg-teal-500 text-slate-950 border-teal-400 font-black shadow-sm' 
+                                                                : 'bg-slate-950 text-slate-300 border-slate-800 hover:border-slate-700'
+                                                        }`}
+                                                    >
+                                                        {labelText}
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                ) : (
+                                    /* S'il n'y a QU'UNE SEULE déclinaison : Affichage direct de tous les attributs enregistrés */
+                                    <div className="pt-2 flex flex-wrap gap-1 border-t border-slate-800/60">
+                                        {currentVariant.volume_ml && currentVariant.volume_ml !== '-' && (
+                                            <span className="text-[9px] sm:text-[10px] bg-slate-950 text-teal-300 border border-slate-800 px-2 py-0.5 rounded-md font-bold">
+                                                💧 {currentVariant.volume_ml}
+                                            </span>
+                                        )}
+                                        {currentVariant.nicotine_level && currentVariant.nicotine_level !== '-' && (
+                                            <span className="text-[9px] sm:text-[10px] bg-slate-950 text-indigo-300 border border-slate-800 px-2 py-0.5 rounded-md font-bold">
+                                                ⚡ {currentVariant.nicotine_level}
+                                            </span>
+                                        )}
+                                        {currentVariant.flavor && currentVariant.flavor !== '-' && (
+                                            <span className="text-[9px] sm:text-[10px] bg-slate-950 text-amber-300 border border-slate-800 px-2 py-0.5 rounded-md font-bold">
+                                                🍓 {currentVariant.flavor}
+                                            </span>
+                                        )}
+                                        {currentVariant.ohm_value && currentVariant.ohm_value !== '-' && (
+                                            <span className="text-[9px] sm:text-[10px] bg-slate-950 text-emerald-300 border border-slate-800 px-2 py-0.5 rounded-md font-bold">
+                                                Ω {currentVariant.ohm_value}
+                                            </span>
+                                        )}
+                                        {currentVariant.color_finish && currentVariant.color_finish !== '-' && (
+                                            <span className="text-[9px] sm:text-[10px] bg-slate-950 text-purple-300 border border-slate-800 px-2 py-0.5 rounded-md font-bold">
+                                                🎨 {currentVariant.color_finish}
+                                            </span>
+                                        )}
+                                    </div>
+                                )}
+
+                                <p className="text-[10px] font-bold text-slate-500 pt-1">
+                                    Stock dispo : <span className={currentVariant.stock > 0 ? "text-emerald-400" : "text-rose-400"}>{currentVariant.stock || 0}</span>
+                                </p>
+                            </div>
+                        </div>
+
+                        {/* Pied de carte : Prix, Quantité et Boutons */}
+                        <div className="p-3 sm:p-5 pt-0 space-y-3 border-t border-slate-800/60 mt-2">
+                            <div className="flex items-center justify-between pt-2">
+                                <span className="font-black text-teal-400 text-xs sm:text-base">{((currentVariant.price || 0) * currentQty).toLocaleString()} Ar</span>
+                                <div className="flex items-center space-x-1 sm:space-x-1.5">
+                                    <button onClick={() => setQuantityByProduct({...quantityByProduct, [product.id]: Math.max(1, currentQty - 1)})} className="w-6 h-6 sm:w-7 sm:h-7 bg-slate-950 border border-slate-800 rounded-lg text-xs font-bold">-</button>
+                                    <span className="text-xs font-bold text-teal-400 px-1">{currentQty}</span>
+                                    <button onClick={() => setQuantityByProduct({...quantityByProduct, [product.id]: currentQty + 1})} className="w-6 h-6 sm:w-7 sm:h-7 bg-slate-950 border border-slate-800 rounded-lg text-xs font-bold">+</button>
+                                </div>
+                            </div>
+                            <div className="grid grid-cols-2 gap-1.5">
+                                <button onClick={() => setSelectedProductModal(product)} className="w-full py-2 bg-slate-950 hover:bg-slate-800 border border-slate-800 text-slate-300 rounded-xl text-[10px] sm:text-xs font-bold transition">
+                                    Détails
+                                </button>
+                                <button onClick={() => addToCart(product, currentVariant, currentQty)} className="w-full py-2 bg-teal-500 hover:bg-teal-400 text-slate-950 rounded-xl text-[10px] sm:text-xs font-bold transition shadow-md shadow-teal-500/20 active:scale-95">
+                                    Ajouter
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                );
             };
 
             const addToCart = (product, variant, qtyOverride = null) => {
@@ -488,7 +649,7 @@
                     p.box_content,
                     brand ? brand.name : '',
                     category ? category.name : '',
-                    ...p.variants.map(v => `${v.flavor} ${v.nicotine_level} ${v.volume_ml} ${v.color_finish}`)
+                    ...p.variants.map(v => `${v.flavor} ${v.nicotine_level} ${v.volume_ml} ${v.color_finish} ${v.ohm_value}`)
                 ].join(' ').toLowerCase();
 
                 return queryWords.every(word => searchableText.includes(word));
@@ -605,19 +766,22 @@
                                                         const subcategories = categories.filter(sub => sub.parent_id === cat.id);
                                                         return (
                                                             <div key={cat.id} className="bg-slate-900/90 border border-slate-800/80 rounded-3xl overflow-hidden shadow-xl flex flex-col justify-between hover:border-teal-500/50 transition duration-300 group">
-                                                                <div className="relative h-36 sm:h-44 overflow-hidden bg-slate-950 cursor-pointer" onClick={() => navigateTo('category', cat.id, null)}>
-                                                                    <img src={cat.image} alt={cat.name} className="w-full h-full object-cover group-hover:scale-105 transition duration-500 opacity-80 group-hover:opacity-100" />
-                                                                    <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/20 to-transparent"></div>
-                                                                    <h3 className="absolute bottom-3 left-3 font-black text-sm sm:text-base text-white">{cat.name}</h3>
+                                                                <div className="relative h-36 sm:h-44 overflow-hidden bg-white flex items-center justify-center cursor-pointer" onClick={() => navigateTo('category', cat.id, null)}>
+                                                                    <img src={cat.image} alt={cat.name} className="w-full h-full object-contain p-2 group-hover:scale-105 transition duration-500" />
+                                                                    <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-transparent to-transparent opacity-80"></div>
+                                                                    <h3 className="absolute bottom-3 left-3 font-black text-sm sm:text-base text-white shadow-sm">{cat.name}</h3>
                                                                 </div>
                                                                 <div className="p-3 sm:p-4 space-y-2">
                                                                     {subcategories.length > 0 && (
-                                                                        <div className="flex flex-wrap gap-1 mb-2">
-                                                                            {subcategories.map(sub => (
-                                                                                <button key={sub.id} onClick={() => navigateTo('category', sub.id, null)} className="text-[10px] bg-slate-950 border border-slate-800 px-2 py-0.5 rounded-lg text-teal-400 hover:bg-teal-500 hover:text-slate-950 font-semibold transition">
-                                                                                    {sub.name}
-                                                                                </button>
-                                                                            ))}
+                                                                        <div className="bg-slate-950/80 border border-slate-800/80 p-2 rounded-2xl space-y-1">
+                                                                            <span className="text-[9px] font-bold text-slate-500 uppercase tracking-wider block px-1">Sous-rubriques & dossiers :</span>
+                                                                            <div className="flex flex-wrap gap-1">
+                                                                                {subcategories.map(sub => (
+                                                                                    <button key={sub.id} onClick={() => navigateTo('category', sub.id, null)} className="text-[10px] bg-slate-900 border border-teal-500/30 px-2 py-0.5 rounded-lg text-teal-400 hover:bg-teal-500 hover:text-slate-950 font-bold transition">
+                                                                                        {sub.name}
+                                                                                    </button>
+                                                                                ))}
+                                                                            </div>
                                                                         </div>
                                                                     )}
                                                                     <button onClick={() => navigateTo('category', cat.id, null)} className="w-full py-2 bg-slate-950 hover:bg-teal-500 hover:text-slate-950 border border-slate-800 rounded-xl text-[11px] font-bold transition flex items-center justify-center space-x-1">
@@ -645,7 +809,9 @@
                                                                 key={b.id} 
                                                                 onClick={() => navigateTo('brand', null, b.id)}
                                                                 className="bg-slate-900/90 border border-slate-800 p-5 rounded-3xl flex flex-col items-center text-center cursor-pointer hover:border-teal-500 transition group">
-                                                                <img src={b.logo_url} alt={b.name} className="w-16 h-16 object-cover rounded-2xl border border-slate-800 mb-3 group-hover:scale-105 transition" />
+                                                                <div className="w-16 h-16 bg-white rounded-2xl border border-slate-800 flex items-center justify-center p-1.5 mb-3">
+                                                                    <img src={b.logo_url} alt={b.name} className="max-w-full max-h-full object-contain group-hover:scale-105 transition" />
+                                                                </div>
                                                                 <h3 className="font-bold text-sm text-slate-100 group-hover:text-teal-400 transition">{b.name}</h3>
                                                                 <p className="text-[11px] text-slate-400 mt-1">{count} produit(s)</p>
                                                             </div>
@@ -671,47 +837,9 @@
                                             </div>
                                         ) : (
                                             <div className="grid grid-cols-2 gap-4 sm:gap-6">
-                                                {searchResults.map(product => {
-                                                    const brand = brands.find(b => b.id === product.brand_id);
-                                                    const selectedVarId = selectedVariantByProduct[product.id] || product.variants[0]?.id;
-                                                    const currentVariant = product.variants.find(v => v.id === selectedVarId) || product.variants[0] || {};
-                                                    const displayImage = currentVariant?.image_url || product.main_image_url;
-                                                    const currentQty = quantityByProduct[product.id] || 1;
-
-                                                    return (
-                                                        <div key={product.id} className="bg-slate-900/90 border border-slate-800/80 rounded-3xl overflow-hidden shadow-xl flex flex-col justify-between group hover:border-teal-500/60 transition duration-300">
-                                                            <div>
-                                                                <div className="relative h-36 sm:h-48 overflow-hidden bg-slate-950 cursor-pointer" onClick={() => setSelectedProductModal(product)}>
-                                                                    <img src={displayImage} alt={product.name} className="w-full h-full object-cover group-hover:scale-105 transition duration-500" />
-                                                                    {brand && <span className="absolute top-2 left-2 bg-slate-950/80 backdrop-blur-md text-teal-400 text-[9px] sm:text-[10px] uppercase font-extrabold px-2 py-0.5 rounded-full border border-slate-800">{brand.name}</span>}
-                                                                </div>
-                                                                <div className="p-3 sm:p-5 space-y-2">
-                                                                    <h3 className="font-bold text-xs sm:text-base text-slate-100 cursor-pointer hover:text-teal-400 transition" onClick={() => setSelectedProductModal(product)}>{product.name}</h3>
-                                                                    <p className="text-[11px] sm:text-xs text-slate-400 line-clamp-2 leading-relaxed">{product.short_description}</p>
-                                                                    <p className="text-[10px] font-bold text-slate-500">Stock dispo : <span className={currentVariant.stock > 0 ? "text-emerald-400" : "text-rose-400"}>{currentVariant.stock || 0}</span></p>
-                                                                </div>
-                                                            </div>
-                                                            <div className="p-3 sm:p-5 pt-0 space-y-3 border-t border-slate-800/60 mt-2">
-                                                                <div className="flex items-center justify-between">
-                                                                    <span className="font-black text-teal-400 text-xs sm:text-base">{((currentVariant.price || 0) * currentQty).toLocaleString()} Ar</span>
-                                                                    <div className="flex items-center space-x-1 sm:space-x-1.5">
-                                                                        <button onClick={() => setQuantityByProduct({...quantityByProduct, [product.id]: Math.max(1, currentQty - 1)})} className="w-6 h-6 sm:w-7 sm:h-7 bg-slate-950 border border-slate-800 rounded-lg text-xs font-bold">-</button>
-                                                                        <span className="text-xs font-bold text-teal-400 px-1">{currentQty}</span>
-                                                                        <button onClick={() => setQuantityByProduct({...quantityByProduct, [product.id]: currentQty + 1})} className="w-6 h-6 sm:w-7 sm:h-7 bg-slate-950 border border-slate-800 rounded-lg text-xs font-bold">+</button>
-                                                                    </div>
-                                                                </div>
-                                                                <div className="grid grid-cols-2 gap-1.5">
-                                                                    <button onClick={() => setSelectedProductModal(product)} className="w-full py-2 bg-slate-950 hover:bg-slate-800 border border-slate-800 text-slate-300 rounded-xl text-[10px] sm:text-xs font-bold transition">
-                                                                        Détails
-                                                                    </button>
-                                                                    <button onClick={() => addToCart(product, currentVariant, currentQty)} className="w-full py-2 bg-teal-500 hover:bg-teal-400 text-slate-950 rounded-xl text-[10px] sm:text-xs font-bold transition shadow-md shadow-teal-500/20 active:scale-95">
-                                                                        Ajouter
-                                                                    </button>
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                    );
-                                                })}
+                                                {searchResults.map(product => (
+                                                    <ProductCard key={product.id} product={product} />
+                                                ))}
                                             </div>
                                         )}
                                     </div>
@@ -721,53 +849,34 @@
                                     <div className="space-y-8">
                                         <div className="border-b border-slate-800 pb-4">
                                             <h2 className="text-2xl font-black text-slate-100">{activeCategory ? activeCategory.name : 'Catalogue'}</h2>
-                                            <p className="text-xs text-slate-400 mt-1">Découvrez l'ensemble des articles de cette rubrique.</p>
+                                            {activeCategory && (() => {
+                                                const subcategories = categories.filter(sub => sub.parent_id === activeCategory.id);
+                                                return subcategories.length > 0 ? (
+                                                    <div className="mt-3 bg-slate-900 border border-slate-800 p-3 rounded-2xl space-y-1.5">
+                                                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Sous-rubriques & dossiers enfants :</span>
+                                                        <div className="flex flex-wrap gap-1.5">
+                                                            {subcategories.map(sub => (
+                                                                <button key={sub.id} onClick={() => navigateTo('category', sub.id, null)} className="text-xs bg-slate-950 border border-teal-500/30 px-3 py-1 rounded-xl text-teal-400 hover:bg-teal-500 hover:text-slate-950 font-bold transition flex items-center space-x-1">
+                                                                    <span>📁</span>
+                                                                    <span>{sub.name}</span>
+                                                                </button>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                ) : null;
+                                            })()}
                                         </div>
 
                                         <div className="grid grid-cols-2 gap-4 sm:gap-6">
                                             {products
-                                                .filter(p => p.category_id === selectedCategoryId || categories.find(c => c.id === p.category_id)?.parent_id === selectedCategoryId)
-                                                .map(product => {
-                                                    const brand = brands.find(b => b.id === product.brand_id);
-                                                    const selectedVarId = selectedVariantByProduct[product.id] || product.variants[0]?.id;
-                                                    const currentVariant = product.variants.find(v => v.id === selectedVarId) || product.variants[0] || {};
-                                                    const displayImage = currentVariant?.image_url || product.main_image_url;
-                                                    const currentQty = quantityByProduct[product.id] || 1;
-
-                                                    return (
-                                                        <div key={product.id} className="bg-slate-900/90 border border-slate-800/80 rounded-3xl overflow-hidden shadow-xl flex flex-col justify-between group hover:border-teal-500/60 transition duration-300">
-                                                            <div>
-                                                                <div className="relative h-36 sm:h-48 overflow-hidden bg-slate-950 cursor-pointer" onClick={() => setSelectedProductModal(product)}>
-                                                                    <img src={displayImage} alt={product.name} className="w-full h-full object-cover group-hover:scale-105 transition duration-500" />
-                                                                    {brand && <span className="absolute top-2 left-2 bg-slate-950/80 backdrop-blur-md text-teal-400 text-[9px] sm:text-[10px] uppercase font-extrabold px-2 py-0.5 rounded-full border border-slate-800">{brand.name}</span>}
-                                                                </div>
-                                                                <div className="p-3 sm:p-5 space-y-2">
-                                                                    <h3 className="font-bold text-xs sm:text-base text-slate-100 cursor-pointer hover:text-teal-400 transition" onClick={() => setSelectedProductModal(product)}>{product.name}</h3>
-                                                                    <p className="text-[11px] sm:text-xs text-slate-400 line-clamp-2 leading-relaxed">{product.short_description}</p>
-                                                                    <p className="text-[10px] font-bold text-slate-500">Stock dispo : <span className={currentVariant.stock > 0 ? "text-emerald-400" : "text-rose-400"}>{currentVariant.stock || 0}</span></p>
-                                                                </div>
-                                                            </div>
-                                                            <div className="p-3 sm:p-5 pt-0 space-y-3 border-t border-slate-800/60 mt-2">
-                                                                <div className="flex items-center justify-between">
-                                                                    <span className="font-black text-teal-400 text-xs sm:text-base">{((currentVariant.price || 0) * currentQty).toLocaleString()} Ar</span>
-                                                                    <div className="flex items-center space-x-1 sm:space-x-1.5">
-                                                                        <button onClick={() => setQuantityByProduct({...quantityByProduct, [product.id]: Math.max(1, currentQty - 1)})} className="w-6 h-6 sm:w-7 sm:h-7 bg-slate-950 border border-slate-800 rounded-lg text-xs font-bold">-</button>
-                                                                        <span className="text-xs font-bold text-teal-400 px-1">{currentQty}</span>
-                                                                        <button onClick={() => setQuantityByProduct({...quantityByProduct, [product.id]: currentQty + 1})} className="w-6 h-6 sm:w-7 sm:h-7 bg-slate-950 border border-slate-800 rounded-lg text-xs font-bold">+</button>
-                                                                    </div>
-                                                                </div>
-                                                                <div className="grid grid-cols-2 gap-1.5">
-                                                                    <button onClick={() => setSelectedProductModal(product)} className="w-full py-2 bg-slate-950 hover:bg-slate-800 border border-slate-800 text-slate-300 rounded-xl text-[10px] sm:text-xs font-bold transition">
-                                                                        Détails
-                                                                    </button>
-                                                                    <button onClick={() => addToCart(product, currentVariant, currentQty)} className="w-full py-2 bg-teal-500 hover:bg-teal-400 text-slate-950 rounded-xl text-[10px] sm:text-xs font-bold transition shadow-md shadow-teal-500/20 active:scale-95">
-                                                                        Ajouter
-                                                                    </button>
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                    );
-                                                })}
+                                                .filter(p => {
+                                                    if (!selectedCategoryId) return true;
+                                                    const validCategoryIds = getAllChildCategoryIds(selectedCategoryId);
+                                                    return validCategoryIds.includes(p.category_id);
+                                                })
+                                                .map(product => (
+                                                    <ProductCard key={product.id} product={product} />
+                                                ))}
                                         </div>
                                     </div>
                                 )}
@@ -775,7 +884,11 @@
                                 {currentView === 'brand' && (
                                     <div className="space-y-8">
                                         <div className="border-b border-slate-800 pb-4 flex items-center space-x-4">
-                                            {activeBrand && <img src={activeBrand.logo_url} alt={activeBrand.name} className="w-14 h-14 object-cover rounded-2xl border border-slate-800" />}
+                                            {activeBrand && (
+                                                <div className="w-14 h-14 bg-white rounded-2xl border border-slate-800 flex items-center justify-center p-1">
+                                                    <img src={activeBrand.logo_url} alt={activeBrand.name} className="max-w-full max-h-full object-contain" />
+                                                </div>
+                                            )}
                                             <div>
                                                 <h2 className="text-2xl font-black text-slate-100">{activeBrand ? activeBrand.name : 'Marque'}</h2>
                                                 <p className="text-xs text-slate-400 mt-1">{activeBrand?.description || 'Tous les produits de cette marque.'}</p>
@@ -785,45 +898,9 @@
                                         <div className="grid grid-cols-2 gap-4 sm:gap-6">
                                             {products
                                                 .filter(p => p.brand_id === selectedBrandId)
-                                                .map(product => {
-                                                    const selectedVarId = selectedVariantByProduct[product.id] || product.variants[0]?.id;
-                                                    const currentVariant = product.variants.find(v => v.id === selectedVarId) || product.variants[0] || {};
-                                                    const displayImage = currentVariant?.image_url || product.main_image_url;
-                                                    const currentQty = quantityByProduct[product.id] || 1;
-
-                                                    return (
-                                                        <div key={product.id} className="bg-slate-900/90 border border-slate-800/80 rounded-3xl overflow-hidden shadow-xl flex flex-col justify-between group">
-                                                            <div>
-                                                                <div className="relative h-36 sm:h-48 overflow-hidden bg-slate-950 cursor-pointer" onClick={() => setSelectedProductModal(product)}>
-                                                                    <img src={displayImage} alt={product.name} className="w-full h-full object-cover group-hover:scale-105 transition duration-500" />
-                                                                </div>
-                                                                <div className="p-3 sm:p-5 space-y-2">
-                                                                    <h3 className="font-bold text-xs sm:text-base text-slate-100 cursor-pointer hover:text-teal-400" onClick={() => setSelectedProductModal(product)}>{product.name}</h3>
-                                                                    <p className="text-[11px] sm:text-xs text-slate-400 line-clamp-2">{product.short_description}</p>
-                                                                    <p className="text-[10px] font-bold text-slate-500">Stock dispo : <span className={currentVariant.stock > 0 ? "text-emerald-400" : "text-rose-400"}>{currentVariant.stock || 0}</span></p>
-                                                                </div>
-                                                            </div>
-                                                            <div className="p-3 sm:p-5 pt-0 space-y-3 border-t border-slate-800/60 mt-2">
-                                                                <div className="flex items-center justify-between">
-                                                                    <span className="font-black text-teal-400 text-xs sm:text-base">{((currentVariant.price || 0) * currentQty).toLocaleString()} Ar</span>
-                                                                    <div className="flex items-center space-x-1 sm:space-x-1.5">
-                                                                        <button onClick={() => setQuantityByProduct({...quantityByProduct, [product.id]: Math.max(1, currentQty - 1)})} className="w-6 h-6 sm:w-7 sm:h-7 bg-slate-950 border border-slate-800 rounded-lg text-xs font-bold">-</button>
-                                                                        <span className="text-xs font-bold text-teal-400 px-1">{currentQty}</span>
-                                                                        <button onClick={() => setQuantityByProduct({...quantityByProduct, [product.id]: currentQty + 1})} className="w-6 h-6 sm:w-7 sm:h-7 bg-slate-950 border border-slate-800 rounded-lg text-xs font-bold">+</button>
-                                                                    </div>
-                                                                </div>
-                                                                <div className="grid grid-cols-2 gap-1.5">
-                                                                    <button onClick={() => setSelectedProductModal(product)} className="w-full py-2 bg-slate-950 hover:bg-slate-800 border border-slate-800 text-slate-300 rounded-xl text-[10px] sm:text-xs font-bold transition">
-                                                                        Détails
-                                                                    </button>
-                                                                    <button onClick={() => addToCart(product, currentVariant, currentQty)} className="w-full py-2 bg-teal-500 hover:bg-teal-400 text-slate-950 rounded-xl text-[10px] sm:text-xs font-bold transition">
-                                                                        Ajouter
-                                                                    </button>
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                    );
-                                                })}
+                                                .map(product => (
+                                                    <ProductCard key={product.id} product={product} />
+                                                ))}
                                         </div>
                                     </div>
                                 )}
@@ -863,7 +940,7 @@
                                                         </select>
                                                     </div>
                                                     <div>
-                                                        <label className="text-xs text-slate-400 font-bold uppercase">Rubrique</label>
+                                                        <label className="text-xs text-slate-400 font-bold uppercase">Rubrique / Dossier</label>
                                                         <select value={newProduct.category_id} onChange={e=>setNewProduct({...newProduct, category_id: e.target.value})} className="w-full mt-1 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm">
                                                             <option value="">Sélectionner (optionnel)</option>
                                                             {categories.map(c => (
@@ -924,7 +1001,7 @@
                                                 <div>
                                                     <label className="text-xs text-slate-400 font-bold uppercase">Photo Principale</label>
                                                     <input type="file" accept="image/*" onChange={handleLocalImageUpload} className="w-full mt-1 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-400" />
-                                                    {newProduct.main_image_url && <img src={newProduct.main_image_url} alt="Aperçu" className="w-16 h-16 object-cover rounded-xl mt-2 border border-slate-800" />}
+                                                    {newProduct.main_image_url && <img src={newProduct.main_image_url} alt="Aperçu" className="w-16 h-16 object-contain rounded-xl mt-2 border border-slate-800 bg-white p-1" />}
                                                 </div>
 
                                                 <div className="border-t border-slate-800 pt-3 space-y-3">
@@ -978,13 +1055,13 @@
                                                                 </div>
                                                                 <div>
                                                                     <label className="text-[10px] text-slate-400">Coloris</label>
-                                                                    <input type="text" value={v.color_finish === '-' ? '' : v.color_finish} onChange={e=>handleVariantChange(v.id, 'color_finish', e.target.value || '-')} placeholder="Optionnel" className="w-full bg-slate-900 border border-slate-800 rounded-lg px-2 py-1.5 text-xs" />
+                                                                    <input type="text" value={v.color_finish === '-' ? '' : v.color_finish} onChange={e=>handleVariantChange(v.id, 'color_finish', e.target.value || '-')} placeholder="Optionnel" className="w-full bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs" />
                                                                 </div>
                                                             </div>
                                                             <div>
                                                                 <label className="text-[10px] text-slate-400">Photo spécifique (optionnel)</label>
                                                                 <input type="file" accept="image/*" onChange={(e) => handleVariantImageUpload(v.id, e)} className="w-full bg-slate-900 border border-slate-800 rounded-lg px-2 py-1 text-[11px] text-slate-400" />
-                                                                {v.image_url && <img src={v.image_url} alt="Variante" className="w-10 h-10 object-cover rounded mt-1 border border-slate-800" />}
+                                                                {v.image_url && <img src={v.image_url} alt="Variante" className="w-10 h-10 object-contain rounded mt-1 border border-slate-800 bg-white p-0.5" />}
                                                             </div>
                                                         </div>
                                                     ))}
@@ -1007,7 +1084,9 @@
                                                 {products.map(p => (
                                                     <div key={p.id} className="bg-slate-950 border border-slate-800 p-4 rounded-xl flex items-center justify-between">
                                                         <div className="flex items-center space-x-3">
-                                                            <img src={p.main_image_url} alt={p.name} className="w-12 h-12 object-cover rounded-lg border border-slate-800" />
+                                                            <div className="w-12 h-12 bg-white rounded-lg border border-slate-800 flex items-center justify-center p-1">
+                                                                <img src={p.main_image_url} alt={p.name} className="max-w-full max-h-full object-contain" />
+                                                            </div>
                                                             <div>
                                                                 <h3 className="font-bold text-sm text-slate-200">{p.name}</h3>
                                                                 <p className="text-xs text-slate-400">{p.variants.length} option(s) tarifaire(s) - Stock total : {p.variants.reduce((sum, v)=>sum+v.stock, 0)}</p>
@@ -1027,7 +1106,6 @@
                                 {adminTab === 'categories' && (
                                     <div className="space-y-8">
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                                            {/* SECTION MARQUES */}
                                             <div className="bg-slate-900 border border-slate-800 p-6 rounded-3xl space-y-4">
                                                 <h3 className="text-sm font-bold uppercase text-indigo-400">Ajouter une Marque</h3>
                                                 <form onSubmit={handleAddBrand} className="space-y-3">
@@ -1042,7 +1120,7 @@
                                                     <div>
                                                         <label className="text-xs text-slate-400 font-bold uppercase">Logo de la Marque</label>
                                                         <input type="file" accept="image/*" onChange={handleBrandLogoUpload} className="w-full mt-1 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-400" />
-                                                        {newBrandLogo && <img src={newBrandLogo} alt="Logo" className="w-12 h-12 object-cover rounded-xl mt-2 border border-slate-800" />}
+                                                        {newBrandLogo && <img src={newBrandLogo} alt="Logo" className="w-12 h-12 object-contain rounded-xl mt-2 border border-slate-800 bg-white p-1" />}
                                                     </div>
                                                     <button type="submit" className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-500 rounded-xl font-bold text-xs uppercase">Ajouter la marque</button>
                                                 </form>
@@ -1053,7 +1131,9 @@
                                                         {brands.map(b => (
                                                             <div key={b.id} className="bg-slate-950 p-2.5 rounded-xl border border-slate-800 flex justify-between items-center text-xs">
                                                                 <div className="flex items-center space-x-2">
-                                                                    <img src={b.logo_url} alt={b.name} className="w-8 h-8 rounded-lg object-cover border border-slate-800" />
+                                                                    <div className="w-8 h-8 rounded-lg border border-slate-800 bg-white flex items-center justify-center p-0.5">
+                                                                        <img src={b.logo_url} alt={b.name} className="max-w-full max-h-full object-contain" />
+                                                                    </div>
                                                                     <span className="font-bold text-slate-200">{b.name}</span>
                                                                 </div>
                                                                 <button onClick={() => deleteBrand(b.id)} className="px-2 py-1 bg-rose-500/10 text-rose-400 rounded-lg text-[10px] font-bold">Supprimer</button>
@@ -1063,41 +1143,42 @@
                                                 </div>
                                             </div>
 
-                                            {/* GESTION AVANCÉE RUBRIQUES & SOUS-RUBRIQUES */}
                                             <div className="bg-slate-900 border border-slate-800 p-6 rounded-3xl space-y-4">
                                                 <div className="flex justify-between items-center">
                                                     <h3 className="text-sm font-bold uppercase text-indigo-400">
-                                                        {editingCatId ? 'Modifier la Rubrique' : 'Créer une Rubrique / Sous-Rubrique'}
+                                                        {editingCatId ? 'Modifier l\'élément' : 'Créer un Dossier / Sous-Rubrique'}
                                                     </h3>
                                                     {newCatParent && (
                                                         <span className="text-[10px] bg-teal-500/20 text-teal-300 font-bold px-2 py-1 rounded-lg border border-teal-500/30">
-                                                            Sous-rubrique de : {categories.find(c=>c.id===newCatParent)?.name}
+                                                            Rattaché à : {categories.find(c=>c.id===newCatParent)?.name}
                                                         </span>
                                                     )}
                                                 </div>
 
                                                 <form onSubmit={handleSaveCategory} className="space-y-3">
                                                     <div>
-                                                        <label className="text-xs text-slate-400 font-bold uppercase">Nom de la rubrique</label>
-                                                        <input type="text" value={newCatName} onChange={e=>setNewCatName(e.target.value)} placeholder="ex: E-Liquides, Fruités, Pods..." className="w-full mt-1 bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-sm" required />
+                                                        <label className="text-xs text-slate-400 font-bold uppercase">Nom du dossier / sous-rubrique</label>
+                                                        <input type="text" value={newCatName} onChange={e=>setNewCatName(e.target.value)} placeholder="ex: E-Liquides, Fruités, Sels de Nicotine..." className="w-full mt-1 bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-sm" required />
                                                     </div>
                                                     <div>
-                                                        <label className="text-xs text-slate-400 font-bold uppercase">Rattacher à une rubrique parente</label>
+                                                        <label className="text-xs text-slate-400 font-bold uppercase">Rattacher à un dossier parent (Emplacement)</label>
                                                         <select value={newCatParent} onChange={e=>setNewCatParent(e.target.value)} className="w-full mt-1 bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-sm">
-                                                            <option value="">-- Aucune (Rubrique Principale) --</option>
-                                                            {categories.filter(c => !c.parent_id && c.id !== editingCatId).map(c => (
-                                                                <option key={c.id} value={c.id}>Rattacher à : {c.name}</option>
+                                                            <option value="">-- Racine (Rubrique Principale) --</option>
+                                                            {categories.filter(c => c.id !== editingCatId).map(c => (
+                                                                <option key={c.id} value={c.id}>
+                                                                    {c.parent_id ? `↳ ${c.name}` : `📁 ${c.name}`}
+                                                                </option>
                                                             ))}
                                                         </select>
                                                     </div>
                                                     <div>
                                                         <label className="text-xs text-slate-400 font-bold uppercase">Image d'illustration</label>
                                                         <input type="file" accept="image/*" onChange={handleLocalCatImageUpload} className="w-full mt-1 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-400" />
-                                                        {newCatImage && <img src={newCatImage} alt="Aperçu" className="w-16 h-16 object-cover rounded-xl mt-2 border border-slate-800" />}
+                                                        {newCatImage && <img src={newCatImage} alt="Aperçu" className="w-16 h-16 object-contain rounded-xl mt-2 border border-slate-800 bg-white p-1" />}
                                                     </div>
                                                     <div className="flex gap-2 pt-2">
                                                         <button type="submit" className="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-500 rounded-xl font-bold text-xs uppercase">
-                                                            {editingCatId ? 'Mettre à jour' : 'Enregistrer la rubrique'}
+                                                            {editingCatId ? 'Mettre à jour' : 'Enregistrer le dossier'}
                                                         </button>
                                                         {(editingCatId || newCatParent) && (
                                                             <button type="button" onClick={() => { setEditingCatId(null); setNewCatName(''); setNewCatParent(''); }} className="px-4 py-2.5 bg-slate-800 rounded-xl text-xs font-bold">Annuler</button>
@@ -1105,45 +1186,12 @@
                                                     </div>
                                                 </form>
 
-                                                {/* ARBORESCENCE DÉTAILLÉE DES RUBRIQUES & SOUS-RUBRIQUES */}
                                                 <div className="pt-4 border-t border-slate-800 space-y-2">
-                                                    <span className="text-xs font-bold text-slate-400 uppercase">Arborescence du Catalogue ({categories.length})</span>
+                                                    <span className="text-xs font-bold text-slate-400 uppercase">Arborescence Multi-niveaux ({categories.length})</span>
                                                     <div className="space-y-3 max-h-[350px] overflow-y-auto pr-1">
-                                                        {categories.filter(c => !c.parent_id).map(mainCat => {
-                                                            const subCats = categories.filter(sub => sub.parent_id === mainCat.id);
-                                                            return (
-                                                                <div key={mainCat.id} className="bg-slate-950 border border-slate-800 rounded-xl p-3 space-y-2">
-                                                                    <div className="flex items-center justify-between">
-                                                                        <div className="flex items-center space-x-2">
-                                                                            <img src={mainCat.image} alt={mainCat.name} className="w-8 h-8 object-cover rounded-lg border border-slate-800" />
-                                                                            <span className="font-extrabold text-xs text-teal-400">{mainCat.name}</span>
-                                                                        </div>
-                                                                        <div className="flex items-center space-x-1">
-                                                                            <button onClick={() => startAddSubCategory(mainCat)} className="px-2 py-1 bg-teal-500/10 text-teal-400 rounded-lg text-[10px] font-bold border border-teal-500/20">+ Sous-rubrique</button>
-                                                                            <button onClick={() => startEditCategory(mainCat)} className="px-2 py-1 bg-amber-500/10 text-amber-400 rounded-lg text-[10px] font-bold">Editer</button>
-                                                                            <button onClick={() => deleteCategory(mainCat.id)} className="px-2 py-1 bg-rose-500/10 text-rose-400 rounded-lg text-[10px] font-bold">Supprimer</button>
-                                                                        </div>
-                                                                    </div>
-
-                                                                    {subCats.length > 0 && (
-                                                                        <div className="pl-6 border-l-2 border-slate-800 space-y-1.5 pt-1">
-                                                                            {subCats.map(sub => (
-                                                                                <div key={sub.id} className="bg-slate-900/80 p-2 rounded-lg flex justify-between items-center text-xs">
-                                                                                    <div className="flex items-center space-x-2">
-                                                                                        <span className="text-slate-500 font-bold">↳</span>
-                                                                                        <span className="font-semibold text-slate-300">{sub.name}</span>
-                                                                                    </div>
-                                                                                    <div className="flex items-center space-x-1">
-                                                                                        <button onClick={() => startEditCategory(sub)} className="px-2 py-0.5 bg-amber-500/10 text-amber-400 rounded text-[9px] font-bold">Editer</button>
-                                                                                        <button onClick={() => deleteCategory(sub.id)} className="px-2 py-0.5 bg-rose-500/10 text-rose-400 rounded text-[9px] font-bold">Supprimer</button>
-                                                                                    </div>
-                                                                                </div>
-                                                                            ))}
-                                                                        </div>
-                                                                    )}
-                                                                </div>
-                                                            );
-                                                        })}
+                                                        {categories.filter(c => !c.parent_id).map(mainCat => (
+                                                            <CategoryTreeItem key={mainCat.id} category={mainCat} />
+                                                        ))}
                                                     </div>
                                                 </div>
                                             </div>
@@ -1172,6 +1220,7 @@
                         )}
                     </main>
 
+                    {/* MODAL FICHE PRODUIT DÉTAILLÉE */}
                     {selectedProductModal && (() => {
                         const product = selectedProductModal;
                         const selectedVarId = selectedVariantByProduct[product.id] || product.variants[0]?.id;
@@ -1192,23 +1241,53 @@
                                     </div>
 
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                        <img src={displayImage} alt={product.name} className="w-full h-48 sm:h-56 object-cover rounded-2xl border border-slate-800" />
+                                        <div className="w-full h-48 sm:h-56 bg-white rounded-2xl border border-slate-800 flex items-center justify-center p-3">
+                                            <img src={displayImage} alt={product.name} className="max-w-full max-h-full object-contain" />
+                                        </div>
                                         <div className="space-y-3">
                                             <p className="text-xs text-slate-300 leading-relaxed">{product.short_description}</p>
                                             <div className="text-teal-400 font-black text-xl">{((currentVariant.price || 0) * currentQty).toLocaleString()} Ar</div>
                                             <p className="text-xs font-bold text-slate-400">Stock disponible : <span className={currentVariant.stock > 0 ? "text-emerald-400" : "text-rose-400"}>{currentVariant.stock || 0}</span></p>
-                                            {currentVariant.flavor && currentVariant.flavor !== '-' && (
-                                                <div className="text-xs bg-slate-950 border border-slate-800 px-3 py-1.5 rounded-xl">
-                                                    <span className="text-slate-400 font-bold">Saveur : </span>
-                                                    <span className="text-teal-300 font-extrabold">{currentVariant.flavor}</span>
-                                                </div>
-                                            )}
+                                            
+                                            {/* Détails complémentaires si renseignés */}
+                                            <div className="space-y-1 pt-1">
+                                                {currentVariant.volume_ml && currentVariant.volume_ml !== '-' && (
+                                                    <div className="text-xs bg-slate-950 border border-slate-800 px-3 py-1 rounded-xl">
+                                                        <span className="text-slate-400 font-bold">Volume / Contenance : </span>
+                                                        <span className="text-teal-300 font-extrabold">{currentVariant.volume_ml}</span>
+                                                    </div>
+                                                )}
+                                                {currentVariant.nicotine_level && currentVariant.nicotine_level !== '-' && (
+                                                    <div className="text-xs bg-slate-950 border border-slate-800 px-3 py-1 rounded-xl">
+                                                        <span className="text-slate-400 font-bold">Taux de Nicotine : </span>
+                                                        <span className="text-indigo-300 font-extrabold">{currentVariant.nicotine_level}</span>
+                                                    </div>
+                                                )}
+                                                {currentVariant.flavor && currentVariant.flavor !== '-' && (
+                                                    <div className="text-xs bg-slate-950 border border-slate-800 px-3 py-1 rounded-xl">
+                                                        <span className="text-slate-400 font-bold">Saveur : </span>
+                                                        <span className="text-amber-300 font-extrabold">{currentVariant.flavor}</span>
+                                                    </div>
+                                                )}
+                                                {currentVariant.ohm_value && currentVariant.ohm_value !== '-' && (
+                                                    <div className="text-xs bg-slate-950 border border-slate-800 px-3 py-1 rounded-xl">
+                                                        <span className="text-slate-400 font-bold">Résistance : </span>
+                                                        <span className="text-emerald-300 font-extrabold">{currentVariant.ohm_value}</span>
+                                                    </div>
+                                                )}
+                                                {currentVariant.color_finish && currentVariant.color_finish !== '-' && (
+                                                    <div className="text-xs bg-slate-950 border border-slate-800 px-3 py-1 rounded-xl">
+                                                        <span className="text-slate-400 font-bold">Coloris / Finition : </span>
+                                                        <span className="text-purple-300 font-extrabold">{currentVariant.color_finish}</span>
+                                                    </div>
+                                                )}
+                                            </div>
                                         </div>
                                     </div>
 
                                     {product.variants.length > 1 && (
                                         <div className="space-y-1.5 pt-2 border-t border-slate-800">
-                                            <span className="text-xs font-bold text-slate-400 uppercase">Options / Saveurs disponibles :</span>
+                                            <span className="text-xs font-bold text-slate-400 uppercase">Changer d'option / déclinaison :</span>
                                             <div className="flex flex-wrap gap-2">
                                                 {product.variants.map(v => (
                                                     <button 
@@ -1250,6 +1329,7 @@
                         );
                     })()}
 
+                    {/* MODAL PANIER */}
                     {showCartModal && (
                         <div className="fixed inset-0 bg-slate-950/85 backdrop-blur-md z-50 flex items-center justify-center p-4">
                             <div className="bg-slate-900 border border-slate-800 p-6 sm:p-8 rounded-3xl max-w-lg w-full shadow-2xl space-y-5">
