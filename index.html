@@ -73,6 +73,32 @@
             const [categories, setCategories] = useState([]);
             const [products, setProducts] = useState([]);
 
+            // Configuration DIY globale indépendante (stockée dans localStorage)
+            const [diyGlobalConfig, setDiyGlobalConfig] = useState(() => {
+                const saved = localStorage.getItem('esigara_diy_global_config');
+                return saved ? JSON.parse(saved) : {
+                    basePrice10ml: 15000,
+                    nicotineBonuses: { '0mg': 0, '3mg': 2000, '6mg': 4000, '12mg': 6000, '18mg': 8000, '20mg': 10000 },
+                    volumeMultipliers: { '10ml': 1, '30ml': 3, '50ml': 5, '100ml': 10 }
+                };
+            });
+
+            const saveDiyGlobalConfig = (newConfig) => {
+                setDiyGlobalConfig(newConfig);
+                localStorage.setItem('esigara_diy_global_config', JSON.stringify(newConfig));
+                alert('Configuration DIY enregistrée avec succès !');
+            };
+
+            // Option globale pour masquer les produits en rupture
+            const [hideOutOfStock, setHideOutOfStock] = useState(() => {
+                return localStorage.getItem('esigara_hide_out_of_stock') === 'true';
+            });
+
+            const handleToggleHideOutOfStock = (val) => {
+                setHideOutOfStock(val);
+                localStorage.setItem('esigara_hide_out_of_stock', val ? 'true' : 'false');
+            };
+
             // Charger l'ensemble des données depuis Supabase au démarrage
             const loadDataFromSupabase = async () => {
                 setIsLoading(true);
@@ -159,39 +185,31 @@
             });
             
             const [variantsList, setVariantsList] = useState([
-                { id: 'var_1', price: '', stock: '0', nicotine_level: '-', volume_ml: '-', ohm_value: '-', color_finish: '-', flavor: '-', image_url: '' }
+                { id: 'var_1', price: '', is_out_of_stock: false, nicotine_level: '-', volume_ml: '-', ohm_value: '-', color_finish: '-', flavor: '-', image_url: '' }
             ]);
 
-            // Calculateur de prix DIY Automatique
-            const [isDiyCalculatorActive, setIsDiyCalculatorActive] = useState(false);
-            const [diyBasePrice10ml, setDiyBasePrice10ml] = useState(15000);
-            const [diyVolumeMl, setDiyVolumeMl] = useState(10);
-            const [diyNicotineRate, setDiyNicotineRate] = useState('0mg');
+            const [isDiyProductChecked, setIsDiyProductChecked] = useState(false);
 
-            const calculateDiyPrice = (base10ml, vol, nic) => {
-                let multiplier = vol / 10;
-                let nicBonus = 0;
-                if (nic === '3mg') nicBonus = 2000 * multiplier;
-                if (nic === '6mg') nicBonus = 4000 * multiplier;
-                if (nic === '12mg') nicBonus = 6000 * multiplier;
-                if (nic === '18mg') nicBonus = 8000 * multiplier;
-                if (nic === '20mg') nicBonus = 10000 * multiplier;
-                return Math.round((base10ml * multiplier) + nicBonus);
+            // Calcul du prix automatique DIY basé sur la configuration globale indépendante
+            const calculateDiyVariantPrice = (volStr, nicStr) => {
+                const volVal = parseInt(volStr) || 10;
+                const multiplier = diyGlobalConfig.volumeMultipliers[volStr] || (volVal / 10);
+                const nicBonus = diyGlobalConfig.nicotineBonuses[nicStr] || 0;
+                return Math.round((diyGlobalConfig.basePrice10ml * multiplier) + nicBonus);
             };
 
-            const generateDiyVariants = () => {
+            const applyGlobalDiyToVariants = () => {
                 const volumes = ['10ml', '30ml', '50ml', '100ml'];
                 const nicotines = ['0mg', '3mg', '6mg', '12mg', '18mg', '20mg'];
                 const generated = [];
 
                 volumes.forEach(vol => {
                     nicotines.forEach(nic => {
-                        const volVal = parseInt(vol);
-                        const calculatedPrice = calculateDiyPrice(diyBasePrice10ml, volVal, nic);
+                        const calculatedPrice = calculateDiyVariantPrice(vol, nic);
                         generated.push({
                             id: 'diy_' + vol + '_' + nic + '_' + Date.now(),
                             price: calculatedPrice.toString(),
-                            stock: '50',
+                            is_out_of_stock: false,
                             nicotine_level: nic,
                             volume_ml: vol,
                             ohm_value: '-',
@@ -203,19 +221,8 @@
                 });
 
                 setVariantsList(generated);
-                alert(`Génération automatique de ${generated.length} déclinaisons DIY (Volume & Nicotine) effectuée !`);
+                alert('Grille tarifaire DIY appliquée automatiquement depuis la configuration globale !');
             };
-
-            useEffect(() => {
-                if (isDiyCalculatorActive && variantsList.length === 1 && !variantsList[0].price) {
-                    const calculatedPrice = calculateDiyPrice(diyBasePrice10ml, diyVolumeMl, diyNicotineRate);
-                    const updated = [...variantsList];
-                    updated[0].price = calculatedPrice.toString();
-                    updated[0].volume_ml = diyVolumeMl + 'ml';
-                    updated[0].nicotine_level = diyNicotineRate;
-                    setVariantsList(updated);
-                }
-            }, [isDiyCalculatorActive, diyBasePrice10ml, diyVolumeMl, diyNicotineRate]);
 
             const [newBrandName, setNewBrandName] = useState('');
             const [newBrandDesc, setNewBrandDesc] = useState('');
@@ -286,7 +293,7 @@
             };
 
             const addVariantField = () => {
-                setVariantsList([...variantsList, { id: 'var_' + Date.now(), price: '', stock: '0', nicotine_level: '-', volume_ml: '-', ohm_value: '-', color_finish: '-', flavor: '-', image_url: '' }]);
+                setVariantsList([...variantsList, { id: 'var_' + Date.now(), price: '', is_out_of_stock: false, nicotine_level: '-', volume_ml: '-', ohm_value: '-', color_finish: '-', flavor: '-', image_url: '' }]);
             };
 
             const removeVariantField = (id) => {
@@ -327,7 +334,7 @@
                     id: 'var_' + productId + '_' + i,
                     product_id: productId,
                     price: parseFloat(v.price),
-                    stock: v.stock !== '' ? parseInt(v.stock) : 0,
+                    stock: v.is_out_of_stock ? 0 : 100, // Remplacement stock par is_out_of_stock
                     nicotine_level: v.nicotine_level || '-',
                     volume_ml: v.volume_ml || '-',
                     ohm_value: v.ohm_value || '-',
@@ -343,8 +350,8 @@
                 alert(editingProductId ? 'Produit mis à jour avec succès !' : 'Produit enregistré avec succès !');
                 setEditingProductId(null);
                 setNewProduct({ name: '', brand_id: '', category_id: '', short_description: '', box_content: '', main_image_url: 'https://images.unsplash.com/photo-1539185441755-769473a23570?auto=format&fit=crop&w=600&q=80' });
-                setVariantsList([{ id: 'var_1', price: '', stock: '0', nicotine_level: '-', volume_ml: '-', ohm_value: '-', color_finish: '-', flavor: '-', image_url: '' }]);
-                setIsDiyCalculatorActive(false);
+                setVariantsList([{ id: 'var_1', price: '', is_out_of_stock: false, nicotine_level: '-', volume_ml: '-', ohm_value: '-', color_finish: '-', flavor: '-', image_url: '' }]);
+                setIsDiyProductChecked(false);
                 loadDataFromSupabase();
             };
 
@@ -361,7 +368,7 @@
                 setVariantsList(prod.variants.map(v => ({
                     id: v.id,
                     price: v.price.toString(),
-                    stock: (v.stock ?? 0).toString(),
+                    is_out_of_stock: (v.stock ?? 1) === 0,
                     nicotine_level: v.nicotine_level || '-',
                     volume_ml: v.volume_ml || '-',
                     ohm_value: v.ohm_value || '-',
@@ -499,12 +506,21 @@
             // COMPOSANT CARTE PRODUIT
             const ProductCard = ({ product }) => {
                 const brand = brands.find(b => b.id === product.brand_id);
-                const selectedVarId = selectedVariantByProduct[product.id] || product.variants[0]?.id;
-                const currentVariant = product.variants.find(v => v.id === selectedVarId) || product.variants[0] || {};
+                
+                // Filtrer les déclinaisons si "hideOutOfStock" est activé
+                const availableVariants = hideOutOfStock 
+                    ? product.variants.filter(v => (v.stock ?? 1) > 0)
+                    : product.variants;
+
+                if (availableVariants.length === 0) return null;
+
+                const selectedVarId = selectedVariantByProduct[product.id] || availableVariants[0]?.id;
+                const currentVariant = availableVariants.find(v => v.id === selectedVarId) || availableVariants[0] || {};
                 const displayImage = currentVariant?.image_url || product.main_image_url;
                 const currentQty = quantityByProduct[product.id] || 1;
 
-                const hasMultipleVariants = product.variants && product.variants.length > 1;
+                const hasMultipleVariants = availableVariants.length > 1;
+                const isOutOfStock = (currentVariant.stock ?? 1) === 0;
 
                 return (
                     <div className="bg-slate-900/90 border border-slate-800/80 rounded-3xl overflow-hidden shadow-xl flex flex-col justify-between group hover:border-teal-500/60 transition duration-300">
@@ -512,6 +528,7 @@
                             <div className="relative h-44 sm:h-56 overflow-hidden bg-white flex items-center justify-center p-3 cursor-pointer" onClick={() => setSelectedProductModal(product)}>
                                 <img src={displayImage} alt={product.name} className="max-w-full max-h-full object-contain group-hover:scale-105 transition duration-500" />
                                 {brand && <span className="absolute top-2 left-2 bg-slate-950/90 backdrop-blur-md text-teal-400 text-[9px] sm:text-[10px] uppercase font-extrabold px-2 py-0.5 rounded-full border border-slate-800">{brand.name}</span>}
+                                {isOutOfStock && <span className="absolute top-2 right-2 bg-rose-500 text-white text-[9px] font-bold px-2 py-0.5 rounded-full">En rupture</span>}
                             </div>
                             
                             <div className="p-3 sm:p-5 space-y-2.5">
@@ -524,7 +541,7 @@
                                     <div className="pt-2 space-y-1.5 border-t border-slate-800/60">
                                         <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block">Déclinaisons :</span>
                                         <div className="flex flex-wrap gap-1 max-h-20 overflow-y-auto pr-1">
-                                            {product.variants.map((v, idx) => {
+                                            {availableVariants.map((v, idx) => {
                                                 const isSelected = v.id === currentVariant.id;
                                                 const labels = [];
                                                 if (v.volume_ml && v.volume_ml !== '-') labels.push(v.volume_ml);
@@ -580,10 +597,6 @@
                                         )}
                                     </div>
                                 )}
-
-                                <p className="text-[10px] font-bold text-slate-500 pt-1">
-                                    Stock dispo : <span className={currentVariant.stock > 0 ? "text-emerald-400" : "text-rose-400"}>{currentVariant.stock || 0}</span>
-                                </p>
                             </div>
                         </div>
 
@@ -600,8 +613,11 @@
                                 <button onClick={() => setSelectedProductModal(product)} className="w-full py-2 bg-slate-950 hover:bg-slate-800 border border-slate-800 text-slate-300 rounded-xl text-[10px] sm:text-xs font-bold transition">
                                     Détails
                                 </button>
-                                <button onClick={() => addToCart(product, currentVariant, currentQty)} className="w-full py-2 bg-teal-500 hover:bg-teal-400 text-slate-950 rounded-xl text-[10px] sm:text-xs font-bold transition shadow-md shadow-teal-500/20 active:scale-95">
-                                    Ajouter
+                                <button 
+                                    onClick={() => addToCart(product, currentVariant, currentQty)} 
+                                    disabled={isOutOfStock}
+                                    className="w-full py-2 bg-teal-500 hover:bg-teal-400 disabled:opacity-40 text-slate-950 rounded-xl text-[10px] sm:text-xs font-bold transition shadow-md shadow-teal-500/20 active:scale-95">
+                                    {isOutOfStock ? 'Épuisé' : 'Ajouter'}
                                 </button>
                             </div>
                         </div>
@@ -612,17 +628,14 @@
             const addToCart = (product, variant, qtyOverride = null) => {
                 const qty = qtyOverride !== null ? qtyOverride : (parseInt(quantityByProduct[product.id]) || 1);
                 
-                if (variant.stock < qty) {
-                    return alert(`Stock insuffisant ! Il ne reste que ${variant.stock} exemplaire(s).`);
+                if ((variant.stock ?? 1) === 0) {
+                    return alert(`Cette déclinaison est en rupture de stock.`);
                 }
 
                 const existingIndex = cart.findIndex(item => item.id === product.id && item.selectedVariant.id === variant.id);
                 
                 if (existingIndex > -1) {
                     const updated = [...cart];
-                    if (variant.stock < updated[existingIndex].quantity + qty) {
-                        return alert(`Stock insuffisant pour ajouter ${qty} de plus.`);
-                    }
                     updated[existingIndex].quantity += qty;
                     setCart(updated);
                 } else {
@@ -631,18 +644,9 @@
                 setShowCartModal(true);
             };
 
-            const processOrderStockReduction = async () => {
-                for (const item of cart) {
-                    const newStock = Math.max(0, item.selectedVariant.stock - item.quantity);
-                    await supabaseClient.from('variants').update({ stock: newStock }).eq('id', item.selectedVariant.id);
-                }
-                loadDataFromSupabase();
-            };
-
             const cartTotal = cart.reduce((sum, item) => sum + (item.selectedVariant.price * item.quantity), 0);
 
             const checkoutWhatsApp = async () => {
-                await processOrderStockReduction();
                 let text = `${settings.whatsappMessage}%0A`;
                 cart.forEach((item) => {
                     text += `- ${item.name} (${item.quantity}x) [Saveur: ${item.selectedVariant.flavor} | ${item.selectedVariant.volume_ml} | Nic: ${item.selectedVariant.nicotine_level}] - ${(item.selectedVariant.price * item.quantity).toLocaleString()} Ar%0A`;
@@ -653,7 +657,6 @@
             };
 
             const checkoutMessenger = async () => {
-                await processOrderStockReduction();
                 window.open(settings.messengerUrl, '_blank');
                 setCart([]);
             };
@@ -690,7 +693,7 @@
                                 <div className="space-y-2">
                                     <h2 className="text-xl font-black text-slate-100">Avertissement Légal</h2>
                                     <p className="text-xs text-slate-400 leading-relaxed">
-                                        Les produits contenus sur <strong className="text-teal-400">Esigara.mg</strong> sont strictly réservés aux personnes majeures.
+                                        Les produits contenus sur <strong className="text-teal-400">Esigara.mg</strong> sont strictement réservés aux personnes majeures.
                                     </p>
                                     <p className="text-xs text-slate-300 font-semibold pt-2">
                                         Certifiez-vous avoir 18 ans ou plus ?
@@ -936,13 +939,89 @@
                                 <div className="flex justify-between items-center border-b border-slate-800 pb-4">
                                     <div className="flex flex-wrap gap-2">
                                         <button onClick={() => setAdminTab('products')} className={`px-4 py-2 rounded-xl text-xs font-bold transition ${adminTab === 'products' ? 'bg-indigo-600 text-white' : 'bg-slate-900 text-slate-400'}`}>1. Produits & Tarifs</button>
-                                        <button onClick={() => setAdminTab('categories')} className={`px-4 py-2 rounded-xl text-xs font-bold transition ${adminTab === 'categories' ? 'bg-indigo-600 text-white' : 'bg-slate-900 text-slate-400'}`}>2. Rubriques & Marques</button>
-                                        <button onClick={() => setAdminTab('settings')} className={`px-4 py-2 rounded-xl text-xs font-bold transition ${adminTab === 'settings' ? 'bg-indigo-600 text-white' : 'bg-slate-900 text-slate-400'}`}>3. WhatsApp / Messenger</button>
+                                        <button onClick={() => setAdminTab('diy_config')} className={`px-4 py-2 rounded-xl text-xs font-bold transition ${adminTab === 'diy_config' ? 'bg-indigo-600 text-white' : 'bg-slate-900 text-slate-400'}`}>2. Configuration DIY</button>
+                                        <button onClick={() => setAdminTab('categories')} className={`px-4 py-2 rounded-xl text-xs font-bold transition ${adminTab === 'categories' ? 'bg-indigo-600 text-white' : 'bg-slate-900 text-slate-400'}`}>3. Rubriques & Marques</button>
+                                        <button onClick={() => setAdminTab('settings')} className={`px-4 py-2 rounded-xl text-xs font-bold transition ${adminTab === 'settings' ? 'bg-indigo-600 text-white' : 'bg-slate-900 text-slate-400'}`}>4. WhatsApp / Messenger</button>
                                     </div>
                                     <button onClick={() => { setAdminUnlocked(false); navigateTo('home'); }} className="px-3 py-1.5 bg-rose-500/10 text-rose-400 border border-rose-500/30 rounded-xl text-xs font-bold hover:bg-rose-500 hover:text-white transition">
                                         Verrouiller l'Admin
                                     </button>
                                 </div>
+
+                                {/* ONGLET CONFIGURATION DIY INDÉPENDANTE */}
+                                {adminTab === 'diy_config' && (
+                                    <div className="bg-slate-900 border border-slate-800 p-8 rounded-3xl max-w-2xl mx-auto space-y-6">
+                                        <div className="border-b border-slate-800 pb-4">
+                                            <h3 className="text-sm font-bold uppercase text-indigo-400">Configuration Globale des Prix DIY</h3>
+                                            <p className="text-xs text-slate-400 mt-1">Ces paramètres s'appliquent automatiquement sur tous les produits où le calcul DIY est activé.</p>
+                                        </div>
+
+                                        <div className="space-y-4 text-xs">
+                                            <div>
+                                                <label className="font-bold text-slate-300 uppercase">Prix de base pour 10 ml (Ar)</label>
+                                                <input 
+                                                    type="number" 
+                                                    value={diyGlobalConfig.basePrice10ml} 
+                                                    onChange={e => setDiyGlobalConfig({...diyGlobalConfig, basePrice10ml: parseFloat(e.target.value) || 0})}
+                                                    className="w-full mt-1 bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-sm text-teal-400 font-bold" 
+                                                />
+                                            </div>
+
+                                            <div className="space-y-2">
+                                                <label className="font-bold text-slate-300 uppercase">Surcoûts selon le taux de nicotine (Ar)</label>
+                                                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                                                    {Object.keys(diyGlobalConfig.nicotineBonuses).map(nic => (
+                                                        <div key={nic} className="bg-slate-950 p-2.5 rounded-xl border border-slate-800">
+                                                            <span className="text-[10px] text-slate-400 font-bold block">{nic}</span>
+                                                            <input 
+                                                                type="number" 
+                                                                value={diyGlobalConfig.nicotineBonuses[nic]}
+                                                                onChange={e => {
+                                                                    const val = parseFloat(e.target.value) || 0;
+                                                                    setDiyGlobalConfig({
+                                                                        ...diyGlobalConfig,
+                                                                        nicotineBonuses: { ...diyGlobalConfig.nicotineBonuses, [nic]: val }
+                                                                    });
+                                                                }}
+                                                                className="w-full mt-1 bg-slate-900 border border-slate-800 rounded-lg px-2 py-1 text-xs"
+                                                            />
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+
+                                            <div className="space-y-2">
+                                                <label className="font-bold text-slate-300 uppercase">Multiplicateurs de volume</label>
+                                                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                                                    {Object.keys(diyGlobalConfig.volumeMultipliers).map(vol => (
+                                                        <div key={vol} className="bg-slate-950 p-2.5 rounded-xl border border-slate-800">
+                                                            <span className="text-[10px] text-slate-400 font-bold block">{vol} (xMult)</span>
+                                                            <input 
+                                                                type="number" 
+                                                                step="0.1"
+                                                                value={diyGlobalConfig.volumeMultipliers[vol]}
+                                                                onChange={e => {
+                                                                    const val = parseFloat(e.target.value) || 1;
+                                                                    setDiyGlobalConfig({
+                                                                        ...diyGlobalConfig,
+                                                                        volumeMultipliers: { ...diyGlobalConfig.volumeMultipliers, [vol]: val }
+                                                                    });
+                                                                }}
+                                                                className="w-full mt-1 bg-slate-900 border border-slate-800 rounded-lg px-2 py-1 text-xs"
+                                                            />
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+
+                                            <button 
+                                                onClick={() => saveDiyGlobalConfig(diyGlobalConfig)}
+                                                className="w-full py-3 bg-indigo-600 hover:bg-indigo-500 rounded-xl font-bold text-xs uppercase tracking-wider transition shadow-lg shadow-indigo-600/30">
+                                                Enregistrer la configuration DIY
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
 
                                 {adminTab === 'products' && (
                                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -985,25 +1064,17 @@
                                                     <textarea value={newProduct.box_content} onChange={e=>setNewProduct({...newProduct, box_content: e.target.value})} placeholder="ex: 1x Batterie, 2x Résistances... (optionnel)" className="w-full mt-1 bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-sm" rows="2"></textarea>
                                                 </div>
 
-                                                {/* SECTION CALCULATEUR DIY DANS L'ADMINISTRATION */}
+                                                {/* OPTION DIY AUTOMATIQUE SUR LE PRODUIT */}
                                                 <div className="bg-slate-950 border border-teal-500/40 p-4 rounded-2xl space-y-3">
                                                     <div className="flex items-center justify-between">
-                                                        <span className="text-xs font-bold text-teal-400 uppercase">Calculateur DIY Automatique</span>
-                                                        <input type="checkbox" checked={isDiyCalculatorActive} onChange={e=>setIsDiyCalculatorActive(e.target.checked)} className="w-4 h-4 accent-teal-500 cursor-pointer" />
+                                                        <span className="text-xs font-bold text-teal-400 uppercase">Appliquer les prix DIY automatiques</span>
+                                                        <input type="checkbox" checked={isDiyProductChecked} onChange={e=>setIsDiyProductChecked(e.target.checked)} className="w-4 h-4 accent-teal-500 cursor-pointer" />
                                                     </div>
-                                                    {isDiyCalculatorActive && (
-                                                        <div className="space-y-3 pt-1 text-xs">
-                                                            <div>
-                                                                <label className="text-[10px] text-slate-400 font-bold">Prix de base par 10ml (Ar)</label>
-                                                                <input type="number" value={diyBasePrice10ml} onChange={e=>setDiyBasePrice10ml(parseFloat(e.target.value) || 0)} className="w-full mt-1 bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1.5" />
-                                                            </div>
-                                                            <div className="bg-slate-900 p-2.5 rounded-xl border border-slate-800 space-y-1 text-[10px] text-slate-300">
-                                                                <p className="font-bold text-teal-400">Règles de calcul automatique :</p>
-                                                                <p>• Multiplicateur selon le volume (30ml, 50ml, 100ml)</p>
-                                                                <p>• Surcoût nicotine (+2 000 Ar à +10 000 Ar selon le taux)</p>
-                                                            </div>
-                                                            <button type="button" onClick={generateDiyVariants} className="w-full py-2 bg-teal-500/20 text-teal-300 border border-teal-500/30 rounded-xl font-bold text-[11px] hover:bg-teal-500 hover:text-slate-950 transition">
-                                                                ⚡ Générer la grille tarifaire DIY complète
+                                                    {isDiyProductChecked && (
+                                                        <div className="space-y-2 pt-1 text-xs">
+                                                            <p className="text-[10px] text-slate-400">Génère automatiquement les déclinaisons selon la configuration globale définie dans l'onglet "Configuration DIY".</p>
+                                                            <button type="button" onClick={applyGlobalDiyToVariants} className="w-full py-2 bg-teal-500/20 text-teal-300 border border-teal-500/30 rounded-xl font-bold text-[11px] hover:bg-teal-500 hover:text-slate-950 transition">
+                                                                ⚡ Appliquer la grille DIY automatique
                                                             </button>
                                                         </div>
                                                     )}
@@ -1028,14 +1099,10 @@
                                                                     <span>Option #{index + 1}</span>
                                                                     {variantsList.length > 1 && <button type="button" onClick={() => removeVariantField(v.id)} className="text-rose-400">Supprimer</button>}
                                                                 </div>
-                                                                <div className="grid grid-cols-3 gap-2">
+                                                                <div className="grid grid-cols-2 gap-2">
                                                                     <div>
                                                                         <label className="text-[10px] text-slate-400 font-bold text-rose-400">Prix (Ar) *</label>
                                                                         <input type="number" value={v.price} onChange={e=>handleVariantChange(v.id, 'price', e.target.value)} placeholder="ex: 75000" className="w-full bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs" required />
-                                                                    </div>
-                                                                    <div>
-                                                                        <label className="text-[10px] text-slate-400">Stock</label>
-                                                                        <input type="number" value={v.stock} onChange={e=>handleVariantChange(v.id, 'stock', e.target.value)} placeholder="0" className="w-full bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs" />
                                                                     </div>
                                                                     <div>
                                                                         <label className="text-[10px] text-slate-400">Saveur</label>
@@ -1070,6 +1137,15 @@
                                                                         <input type="text" value={v.color_finish === '-' ? '' : v.color_finish} onChange={e=>handleVariantChange(v.id, 'color_finish', e.target.value || '-')} placeholder="Optionnel" className="w-full bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs" />
                                                                     </div>
                                                                 </div>
+                                                                <div className="flex items-center space-x-2 pt-1">
+                                                                    <input 
+                                                                        type="checkbox" 
+                                                                        checked={v.is_out_of_stock} 
+                                                                        onChange={e=>handleVariantChange(v.id, 'is_out_of_stock', e.target.checked)} 
+                                                                        className="w-3.5 h-3.5 accent-rose-500 cursor-pointer" 
+                                                                    />
+                                                                    <label className="text-[10px] text-rose-400 font-bold uppercase">En rupture de stock</label>
+                                                                </div>
                                                                 <div>
                                                                     <label className="text-[10px] text-slate-400">Photo spécifique (optionnel)</label>
                                                                     <input type="file" accept="image/*" onChange={(e) => handleVariantImageUpload(v.id, e)} className="w-full bg-slate-900 border border-slate-800 rounded-lg px-2 py-1 text-[11px] text-slate-400" />
@@ -1091,7 +1167,6 @@
                                             </form>
                                         </div>
 
-                                        {/* CLASSEMENT DES PRODUITS PAR RUBRIQUE ET DOSSIER DANS L'ADMIN */}
                                         <div className="lg:col-span-2 bg-slate-900 border border-slate-800 p-6 rounded-3xl">
                                             <h2 className="text-sm font-bold uppercase text-indigo-400 mb-4">Catalogue Classé par Rubriques & Dossiers ({products.length})</h2>
                                             <div className="space-y-6 max-h-[600px] overflow-y-auto pr-2">
@@ -1121,7 +1196,7 @@
                                                                             </div>
                                                                             <div>
                                                                                 <h4 className="font-bold text-xs text-slate-200">{p.name}</h4>
-                                                                                <p className="text-[10px] text-slate-400">{p.variants.length} option(s) tarifaire(s) - Stock: {p.variants.reduce((sum, v)=>sum+v.stock, 0)}</p>
+                                                                                <p className="text-[10px] text-slate-400">{p.variants.length} option(s) tarifaire(s)</p>
                                                                             </div>
                                                                         </div>
                                                                         <div className="flex items-center space-x-2">
@@ -1264,19 +1339,35 @@
                                 )}
 
                                 {adminTab === 'settings' && (
-                                    <div className="bg-slate-900 border border-slate-800 p-8 rounded-3xl max-w-xl mx-auto space-y-4">
-                                        <h3 className="text-sm font-bold uppercase text-indigo-400">Paramètres WhatsApp & Messenger</h3>
-                                        <div>
-                                            <label className="text-xs text-slate-400 font-bold uppercase">Numéro WhatsApp (+261...)</label>
-                                            <input type="text" value={settings.whatsappNumber} onChange={e=>setSettings({...settings, whatsappNumber: e.target.value})} className="w-full mt-1 bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-sm" />
+                                    <div className="bg-slate-900 border border-slate-800 p-8 rounded-3xl max-w-xl mx-auto space-y-6">
+                                        <h3 className="text-sm font-bold uppercase text-indigo-400">Paramètres Généraux & Commandes</h3>
+                                        
+                                        <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 flex items-center justify-between">
+                                            <div>
+                                                <h4 className="text-xs font-bold text-slate-200">Masquer les produits en rupture</h4>
+                                                <p className="text-[10px] text-slate-400">Cache automatiquement les déclinaisons ou produits épuisés du catalogue.</p>
+                                            </div>
+                                            <input 
+                                                type="checkbox" 
+                                                checked={hideOutOfStock} 
+                                                onChange={e => handleToggleHideOutOfStock(e.target.checked)} 
+                                                className="w-5 h-5 accent-teal-500 cursor-pointer" 
+                                            />
                                         </div>
-                                        <div>
-                                            <label className="text-xs text-slate-400 font-bold uppercase">Message pré-rempli</label>
-                                            <textarea value={settings.whatsappMessage} onChange={e=>setSettings({...settings, whatsappMessage: e.target.value})} className="w-full mt-1 bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-sm" rows="2"></textarea>
-                                        </div>
-                                        <div>
-                                            <label className="text-xs text-slate-400 font-bold uppercase">Lien Messenger</label>
-                                            <input type="text" value={settings.messengerUrl} onChange={e=>setSettings({...settings, messengerUrl: e.target.value})} className="w-full mt-1 bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-sm" />
+
+                                        <div className="space-y-4 pt-2">
+                                            <div>
+                                                <label className="text-xs text-slate-400 font-bold uppercase">Numéro WhatsApp (+261...)</label>
+                                                <input type="text" value={settings.whatsappNumber} onChange={e=>setSettings({...settings, whatsappNumber: e.target.value})} className="w-full mt-1 bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-sm" />
+                                            </div>
+                                            <div>
+                                                <label className="text-xs text-slate-400 font-bold uppercase">Message pré-rempli</label>
+                                                <textarea value={settings.whatsappMessage} onChange={e=>setSettings({...settings, whatsappMessage: e.target.value})} className="w-full mt-1 bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-sm" rows="2"></textarea>
+                                            </div>
+                                            <div>
+                                                <label className="text-xs text-slate-400 font-bold uppercase">Lien Messenger</label>
+                                                <input type="text" value={settings.messengerUrl} onChange={e=>setSettings({...settings, messengerUrl: e.target.value})} className="w-full mt-1 bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-sm" />
+                                            </div>
                                         </div>
                                     </div>
                                 )}
@@ -1284,21 +1375,25 @@
                         )}
                     </main>
 
-                    {/* MODAL FICHE PRODUIT DÉTAILLÉE AVEC SÉLECTEURS DE VOLUME ET NICOTINE POUR LE CLIENT */}
+                    {/* MODAL FICHE PRODUIT DÉTAILLÉE */}
                     {selectedProductModal && (() => {
                         const product = selectedProductModal;
-                        const selectedVarId = selectedVariantByProduct[product.id] || product.variants[0]?.id;
-                        const currentVariant = product.variants.find(v => v.id === selectedVarId) || product.variants[0] || {};
+                        const availableVariants = hideOutOfStock 
+                            ? product.variants.filter(v => (v.stock ?? 1) > 0)
+                            : product.variants;
+
+                        const selectedVarId = selectedVariantByProduct[product.id] || availableVariants[0]?.id;
+                        const currentVariant = availableVariants.find(v => v.id === selectedVarId) || availableVariants[0] || {};
                         const displayImage = currentVariant?.image_url || product.main_image_url;
                         const currentQty = quantityByProduct[product.id] || 1;
                         const brand = brands.find(b => b.id === product.brand_id);
+                        const isOutOfStock = (currentVariant.stock ?? 1) === 0;
 
-                        // Récupération dynamique de toutes les options de volume et nicotine disponibles pour ce produit
-                        const availableVolumes = Array.from(new Set(product.variants.map(v => v.volume_ml).filter(v => v && v !== '-')));
-                        const availableNicotines = Array.from(new Set(product.variants.map(v => v.nicotine_level).filter(v => v && v !== '-')));
+                        const availableVolumes = Array.from(new Set(availableVariants.map(v => v.volume_ml).filter(v => v && v !== '-')));
+                        const availableNicotines = Array.from(new Set(availableVariants.map(v => v.nicotine_level).filter(v => v && v !== '-')));
 
                         const handleDiySelectionChange = (newVol, newNic) => {
-                            const matchedVar = product.variants.find(v => 
+                            const matchedVar = availableVariants.find(v => 
                                 (newVol ? v.volume_ml === newVol : true) && 
                                 (newNic ? v.nicotine_level === newNic : true)
                             );
@@ -1319,13 +1414,14 @@
                                     </div>
 
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                        <div className="w-full h-48 sm:h-56 bg-white rounded-2xl border border-slate-800 flex items-center justify-center p-3">
+                                        <div className="w-full h-48 sm:h-56 bg-white rounded-2xl border border-slate-800 flex items-center justify-center p-3 relative">
                                             <img src={displayImage} alt={product.name} className="max-w-full max-h-full object-contain" />
+                                            {isOutOfStock && <span className="absolute top-2 right-2 bg-rose-500 text-white text-[10px] font-bold px-2.5 py-0.5 rounded-full">En rupture</span>}
                                         </div>
                                         <div className="space-y-3">
                                             <p className="text-xs text-slate-300 leading-relaxed">{product.short_description}</p>
                                             <div className="text-teal-400 font-black text-xl">{((currentVariant.price || 0) * currentQty).toLocaleString()} Ar</div>
-                                            <p className="text-xs font-bold text-slate-400">Stock disponible : <span className={currentVariant.stock > 0 ? "text-emerald-400" : "text-rose-400"}>{currentVariant.stock || 0}</span></p>
+                                            <p className="text-xs font-bold text-slate-400">Statut : <span className={!isOutOfStock ? "text-emerald-400" : "text-rose-400"}>{!isOutOfStock ? "Disponible" : "En rupture de stock"}</span></p>
                                             
                                             <div className="space-y-1 pt-1">
                                                 {currentVariant.volume_ml && currentVariant.volume_ml !== '-' && (
@@ -1362,7 +1458,6 @@
                                         </div>
                                     </div>
 
-                                    {/* CHOIX DU VOLUME ET TAUX DE NICOTINE PAR LE CLIENT */}
                                     {(availableVolumes.length > 0 || availableNicotines.length > 0) && (
                                         <div className="bg-slate-950 border border-teal-500/30 p-4 rounded-2xl space-y-3">
                                             <span className="text-xs font-black uppercase text-teal-400 tracking-wider block">Personnaliser votre E-Liquide / DIY</span>
@@ -1398,16 +1493,16 @@
                                         </div>
                                     )}
 
-                                    {product.variants.length > 1 && (
+                                    {availableVariants.length > 1 && (
                                         <div className="space-y-1.5 pt-2 border-t border-slate-800">
                                             <span className="text-xs font-bold text-slate-400 uppercase">Changer d'option / déclinaison :</span>
                                             <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto pr-1">
-                                                {product.variants.map(v => (
+                                                {availableVariants.map(v => (
                                                     <button 
                                                         key={v.id} 
                                                         onClick={() => setSelectedVariantByProduct({...selectedVariantByProduct, [product.id]: v.id})}
                                                         className={`text-xs px-3 py-2 rounded-xl border font-semibold transition flex flex-col items-start ${currentVariant.id === v.id ? 'bg-teal-500 text-slate-950 border-teal-400 shadow-lg' : 'bg-slate-950 border-slate-800 text-slate-300'}`}>
-                                                        <span className="font-bold">{v.flavor !== '-' ? v.flavor : 'Option'} (Stock: {v.stock})</span>
+                                                        <span className="font-bold">{v.flavor !== '-' ? v.flavor : 'Option'}</span>
                                                         <span className="text-[10px] opacity-80">{v.volume_ml !== '-' ? v.volume_ml : ''} {v.nicotine_level !== '-' ? '• Nic: ' + v.nicotine_level : ''} {v.color_finish !== '-' ? '• Color: ' + v.color_finish : ''}</span>
                                                     </button>
                                                 ))}
@@ -1433,8 +1528,9 @@
                                         </div>
                                         <button 
                                             onClick={() => { addToCart(product, currentVariant, currentQty); setSelectedProductModal(null); }}
-                                            className="px-6 py-3 bg-teal-500 hover:bg-teal-400 text-slate-950 rounded-2xl text-xs font-black uppercase tracking-wider transition shadow-lg shadow-teal-500/25">
-                                            Ajouter au panier
+                                            disabled={isOutOfStock}
+                                            className="px-6 py-3 bg-teal-500 hover:bg-teal-400 disabled:opacity-40 text-slate-950 rounded-2xl text-xs font-black uppercase tracking-wider transition shadow-lg shadow-teal-500/25">
+                                            {isOutOfStock ? 'Épuisé' : 'Ajouter au panier'}
                                         </button>
                                     </div>
                                 </div>
