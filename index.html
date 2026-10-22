@@ -162,30 +162,58 @@
                 { id: 'var_1', price: '', stock: '0', nicotine_level: '-', volume_ml: '-', ohm_value: '-', color_finish: '-', flavor: '-', image_url: '' }
             ]);
 
+            // Calculateur de prix DIY automatique
             const [isDiyCalculatorActive, setIsDiyCalculatorActive] = useState(false);
             const [diyBasePrice10ml, setDiyBasePrice10ml] = useState(15000);
             const [diyVolumeMl, setDiyVolumeMl] = useState(10);
             const [diyNicotineRate, setDiyNicotineRate] = useState('0mg');
 
-            useEffect(() => {
-                if (isDiyCalculatorActive) {
-                    let multiplier = diyVolumeMl / 10;
-                    let nicBonus = 0;
-                    if (diyNicotineRate === '3mg') nicBonus = 2000 * (diyVolumeMl / 10);
-                    if (diyNicotineRate === '6mg') nicBonus = 4000 * (diyVolumeMl / 10);
-                    if (diyNicotineRate === '12mg') nicBonus = 6000 * (diyVolumeMl / 10);
-                    if (diyNicotineRate === '18mg') nicBonus = 8000 * (diyVolumeMl / 10);
-                    if (diyNicotineRate === '20mg') nicBonus = 10000 * (diyVolumeMl / 10);
+            const calculateDiyPrice = (base10ml, vol, nic) => {
+                let multiplier = vol / 10;
+                let nicBonus = 0;
+                if (nic === '3mg') nicBonus = 2000 * multiplier;
+                if (nic === '6mg') nicBonus = 4000 * multiplier;
+                if (nic === '12mg') nicBonus = 6000 * multiplier;
+                if (nic === '18mg') nicBonus = 8000 * multiplier;
+                if (nic === '20mg') nicBonus = 10000 * multiplier;
+                return Math.round((base10ml * multiplier) + nicBonus);
+            };
 
-                    const calculatedPrice = Math.round((diyBasePrice10ml * multiplier) + nicBonus);
-                    
-                    if (variantsList.length > 0) {
-                        const updated = [...variantsList];
-                        updated[0].price = calculatedPrice.toString();
-                        updated[0].volume_ml = diyVolumeMl + 'ml';
-                        updated[0].nicotine_level = diyNicotineRate;
-                        setVariantsList(updated);
-                    }
+            const generateDiyVariants = () => {
+                const volumes = ['10ml', '30ml', '50ml', '100ml'];
+                const nicotines = ['0mg', '3mg', '6mg', '12mg', '18mg', '20mg'];
+                const generated = [];
+
+                volumes.forEach(vol => {
+                    nicotines.forEach(nic => {
+                        const volVal = parseInt(vol);
+                        const calculatedPrice = calculateDiyPrice(diyBasePrice10ml, volVal, nic);
+                        generated.push({
+                            id: 'diy_' + vol + '_' + nic + '_' + Date.now(),
+                            price: calculatedPrice.toString(),
+                            stock: '50',
+                            nicotine_level: nic,
+                            volume_ml: vol,
+                            ohm_value: '-',
+                            color_finish: '-',
+                            flavor: 'Sur Mesure (DIY)',
+                            image_url: ''
+                        });
+                    });
+                });
+
+                setVariantsList(generated);
+                alert(`Génération automatique de ${generated.length} déclinaisons DIY (Volume & Nicotine) effectuée !`);
+            };
+
+            useEffect(() => {
+                if (isDiyCalculatorActive && variantsList.length === 1 && !variantsList[0].price) {
+                    const calculatedPrice = calculateDiyPrice(diyBasePrice10ml, diyVolumeMl, diyNicotineRate);
+                    const updated = [...variantsList];
+                    updated[0].price = calculatedPrice.toString();
+                    updated[0].volume_ml = diyVolumeMl + 'ml';
+                    updated[0].nicotine_level = diyNicotineRate;
+                    setVariantsList(updated);
                 }
             }, [isDiyCalculatorActive, diyBasePrice10ml, diyVolumeMl, diyNicotineRate]);
 
@@ -468,7 +496,7 @@
                 );
             };
 
-            // COMPOSANT RÉUTILISABLE CARTE PRODUIT : Affiche toujours la saveur, nicotine, volume, ohm, coloris
+            // COMPOSANT CARTE PRODUIT
             const ProductCard = ({ product }) => {
                 const brand = brands.find(b => b.id === product.brand_id);
                 const selectedVarId = selectedVariantByProduct[product.id] || product.variants[0]?.id;
@@ -481,7 +509,6 @@
                 return (
                     <div className="bg-slate-900/90 border border-slate-800/80 rounded-3xl overflow-hidden shadow-xl flex flex-col justify-between group hover:border-teal-500/60 transition duration-300">
                         <div>
-                            {/* Image avec fond blanc */}
                             <div className="relative h-44 sm:h-56 overflow-hidden bg-white flex items-center justify-center p-3 cursor-pointer" onClick={() => setSelectedProductModal(product)}>
                                 <img src={displayImage} alt={product.name} className="max-w-full max-h-full object-contain group-hover:scale-105 transition duration-500" />
                                 {brand && <span className="absolute top-2 left-2 bg-slate-950/90 backdrop-blur-md text-teal-400 text-[9px] sm:text-[10px] uppercase font-extrabold px-2 py-0.5 rounded-full border border-slate-800">{brand.name}</span>}
@@ -493,7 +520,6 @@
                                     <p className="text-[11px] sm:text-xs text-slate-400 line-clamp-2 leading-relaxed">{product.short_description}</p>
                                 )}
 
-                                {/* S'il y a plusieurs déclinaisons : Sélecteurs cliquables */}
                                 {hasMultipleVariants ? (
                                     <div className="pt-2 space-y-1.5 border-t border-slate-800/60">
                                         <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block">Déclinaisons :</span>
@@ -526,7 +552,6 @@
                                         </div>
                                     </div>
                                 ) : (
-                                    /* S'il n'y a QU'UNE SEULE déclinaison : Affichage direct de tous les attributs enregistrés */
                                     <div className="pt-2 flex flex-wrap gap-1 border-t border-slate-800/60">
                                         {currentVariant.volume_ml && currentVariant.volume_ml !== '-' && (
                                             <span className="text-[9px] sm:text-[10px] bg-slate-950 text-teal-300 border border-slate-800 px-2 py-0.5 rounded-md font-bold">
@@ -562,7 +587,6 @@
                             </div>
                         </div>
 
-                        {/* Pied de carte : Prix, Quantité et Boutons */}
                         <div className="p-3 sm:p-5 pt-0 space-y-3 border-t border-slate-800/60 mt-2">
                             <div className="flex items-center justify-between pt-2">
                                 <span className="font-black text-teal-400 text-xs sm:text-base">{((currentVariant.price || 0) * currentQty).toLocaleString()} Ar</span>
@@ -961,39 +985,26 @@
                                                     <textarea value={newProduct.box_content} onChange={e=>setNewProduct({...newProduct, box_content: e.target.value})} placeholder="ex: 1x Batterie, 2x Résistances... (optionnel)" className="w-full mt-1 bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-sm" rows="2"></textarea>
                                                 </div>
 
+                                                {/* SECTION CALCULATEUR DIY DANS L'ADMINISTRATION */}
                                                 <div className="bg-slate-950 border border-teal-500/40 p-4 rounded-2xl space-y-3">
                                                     <div className="flex items-center justify-between">
-                                                        <span className="text-xs font-bold text-teal-400 uppercase">Calculateur DIY (Volume & Nicotine)</span>
+                                                        <span className="text-xs font-bold text-teal-400 uppercase">Calculateur DIY Automatique</span>
                                                         <input type="checkbox" checked={isDiyCalculatorActive} onChange={e=>setIsDiyCalculatorActive(e.target.checked)} className="w-4 h-4 accent-teal-500 cursor-pointer" />
                                                     </div>
                                                     {isDiyCalculatorActive && (
-                                                        <div className="space-y-2.5 pt-1 text-xs">
+                                                        <div className="space-y-3 pt-1 text-xs">
                                                             <div>
                                                                 <label className="text-[10px] text-slate-400 font-bold">Prix de base par 10ml (Ar)</label>
                                                                 <input type="number" value={diyBasePrice10ml} onChange={e=>setDiyBasePrice10ml(parseFloat(e.target.value) || 0)} className="w-full mt-1 bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1.5" />
                                                             </div>
-                                                            <div className="grid grid-cols-2 gap-2">
-                                                                <div>
-                                                                    <label className="text-[10px] text-slate-400 font-bold">Quantité / Volume</label>
-                                                                    <select value={diyVolumeMl} onChange={e=>setDiyVolumeMl(parseInt(e.target.value))} className="w-full mt-1 bg-slate-900 border border-slate-800 rounded-lg px-2 py-1.5">
-                                                                        <option value={10}>10 ml</option>
-                                                                        <option value={30}>30 ml</option>
-                                                                        <option value={50}>50 ml</option>
-                                                                        <option value={100}>100 ml</option>
-                                                                    </select>
-                                                                </div>
-                                                                <div>
-                                                                    <label className="text-[10px] text-slate-400 font-bold">Taux de Nicotine</label>
-                                                                    <select value={diyNicotineRate} onChange={e=>setDiyNicotineRate(e.target.value)} className="w-full mt-1 bg-slate-900 border border-slate-800 rounded-lg px-2 py-1.5">
-                                                                        <option value="0mg">0 mg</option>
-                                                                        <option value="3mg">3 mg</option>
-                                                                        <option value="6mg">6 mg</option>
-                                                                        <option value="12mg">12 mg</option>
-                                                                        <option value="18mg">18 mg</option>
-                                                                        <option value="20mg">20 mg</option>
-                                                                    </select>
-                                                                </div>
+                                                            <div className="bg-slate-900 p-2.5 rounded-xl border border-slate-800 space-y-1 text-[10px] text-slate-300">
+                                                                <p className="font-bold text-teal-400">Règles de calcul automatique :</p>
+                                                                <p>• Multiplicateur selon le volume (30ml, 50ml, 100ml)</p>
+                                                                <p>• Surcoût nicotine (+2 000 Ar à +10 000 Ar selon le taux)</p>
                                                             </div>
+                                                            <button type="button" onClick={generateDiyVariants} className="w-full py-2 bg-teal-500/20 text-teal-300 border border-teal-500/30 rounded-xl font-bold text-[11px] hover:bg-teal-500 hover:text-slate-950 transition">
+                                                                ⚡ Générer la grille tarifaire DIY complète
+                                                            </button>
                                                         </div>
                                                     )}
                                                 </div>
@@ -1006,65 +1017,67 @@
 
                                                 <div className="border-t border-slate-800 pt-3 space-y-3">
                                                     <div className="flex justify-between items-center">
-                                                        <span className="text-xs font-bold text-teal-400 uppercase">Tarif & Déclinaisons</span>
+                                                        <span className="text-xs font-bold text-teal-400 uppercase">Tarif & Déclinaisons ({variantsList.length})</span>
                                                         <button type="button" onClick={addVariantField} className="px-2.5 py-1 bg-teal-500/10 text-teal-400 border border-teal-500/30 rounded-lg text-xs font-bold">+ Option / Variante</button>
                                                     </div>
 
-                                                    {variantsList.map((v, index) => (
-                                                        <div key={v.id} className="bg-slate-950 border border-slate-800 p-3 rounded-xl space-y-2">
-                                                            <div className="flex justify-between items-center text-[11px] text-slate-400 font-bold">
-                                                                <span>Option #{index + 1}</span>
-                                                                {variantsList.length > 1 && <button type="button" onClick={() => removeVariantField(v.id)} className="text-rose-400">Supprimer</button>}
+                                                    <div className="max-h-64 overflow-y-auto space-y-2 pr-1">
+                                                        {variantsList.map((v, index) => (
+                                                            <div key={v.id} className="bg-slate-950 border border-slate-800 p-3 rounded-xl space-y-2">
+                                                                <div className="flex justify-between items-center text-[11px] text-slate-400 font-bold">
+                                                                    <span>Option #{index + 1}</span>
+                                                                    {variantsList.length > 1 && <button type="button" onClick={() => removeVariantField(v.id)} className="text-rose-400">Supprimer</button>}
+                                                                </div>
+                                                                <div className="grid grid-cols-3 gap-2">
+                                                                    <div>
+                                                                        <label className="text-[10px] text-slate-400 font-bold text-rose-400">Prix (Ar) *</label>
+                                                                        <input type="number" value={v.price} onChange={e=>handleVariantChange(v.id, 'price', e.target.value)} placeholder="ex: 75000" className="w-full bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs" required />
+                                                                    </div>
+                                                                    <div>
+                                                                        <label className="text-[10px] text-slate-400">Stock</label>
+                                                                        <input type="number" value={v.stock} onChange={e=>handleVariantChange(v.id, 'stock', e.target.value)} placeholder="0" className="w-full bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs" />
+                                                                    </div>
+                                                                    <div>
+                                                                        <label className="text-[10px] text-slate-400">Saveur</label>
+                                                                        <input type="text" value={v.flavor === '-' ? '' : v.flavor} onChange={e=>handleVariantChange(v.id, 'flavor', e.target.value || '-')} placeholder="Optionnel" className="w-full bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs" />
+                                                                    </div>
+                                                                </div>
+                                                                <div className="grid grid-cols-3 gap-2">
+                                                                    <div>
+                                                                        <label className="text-[10px] text-slate-400">Nicotine</label>
+                                                                        <select value={v.nicotine_level} onChange={e=>handleVariantChange(v.id, 'nicotine_level', e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-lg px-2 py-1.5 text-xs">
+                                                                            <option value="-">- Aucun -</option>
+                                                                            <option value="0mg">0mg</option>
+                                                                            <option value="3mg">3mg</option>
+                                                                            <option value="6mg">6mg</option>
+                                                                            <option value="12mg">12mg</option>
+                                                                            <option value="18mg">18mg</option>
+                                                                            <option value="20mg">20mg</option>
+                                                                        </select>
+                                                                    </div>
+                                                                    <div>
+                                                                        <label className="text-[10px] text-slate-400">Volume</label>
+                                                                        <select value={v.volume_ml} onChange={e=>handleVariantChange(v.id, 'volume_ml', e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-lg px-2 py-1.5 text-xs">
+                                                                            <option value="-">- Aucun -</option>
+                                                                            <option value="10ml">10ml</option>
+                                                                            <option value="30ml">30ml</option>
+                                                                            <option value="50ml">50ml</option>
+                                                                            <option value="100ml">100ml</option>
+                                                                        </select>
+                                                                    </div>
+                                                                    <div>
+                                                                        <label className="text-[10px] text-slate-400">Coloris</label>
+                                                                        <input type="text" value={v.color_finish === '-' ? '' : v.color_finish} onChange={e=>handleVariantChange(v.id, 'color_finish', e.target.value || '-')} placeholder="Optionnel" className="w-full bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs" />
+                                                                    </div>
+                                                                </div>
+                                                                <div>
+                                                                    <label className="text-[10px] text-slate-400">Photo spécifique (optionnel)</label>
+                                                                    <input type="file" accept="image/*" onChange={(e) => handleVariantImageUpload(v.id, e)} className="w-full bg-slate-900 border border-slate-800 rounded-lg px-2 py-1 text-[11px] text-slate-400" />
+                                                                    {v.image_url && <img src={v.image_url} alt="Variante" className="w-10 h-10 object-contain rounded mt-1 border border-slate-800 bg-white p-0.5" />}
+                                                                </div>
                                                             </div>
-                                                            <div className="grid grid-cols-3 gap-2">
-                                                                <div>
-                                                                    <label className="text-[10px] text-slate-400 font-bold text-rose-400">Prix (Ar) *</label>
-                                                                    <input type="number" value={v.price} onChange={e=>handleVariantChange(v.id, 'price', e.target.value)} placeholder="ex: 75000" className="w-full bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs" required />
-                                                                </div>
-                                                                <div>
-                                                                    <label className="text-[10px] text-slate-400">Stock</label>
-                                                                    <input type="number" value={v.stock} onChange={e=>handleVariantChange(v.id, 'stock', e.target.value)} placeholder="0" className="w-full bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs" />
-                                                                </div>
-                                                                <div>
-                                                                    <label className="text-[10px] text-slate-400">Saveur</label>
-                                                                    <input type="text" value={v.flavor === '-' ? '' : v.flavor} onChange={e=>handleVariantChange(v.id, 'flavor', e.target.value || '-')} placeholder="Optionnel" className="w-full bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs" />
-                                                                </div>
-                                                            </div>
-                                                            <div className="grid grid-cols-3 gap-2">
-                                                                <div>
-                                                                    <label className="text-[10px] text-slate-400">Nicotine</label>
-                                                                    <select value={v.nicotine_level} onChange={e=>handleVariantChange(v.id, 'nicotine_level', e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-lg px-2 py-1.5 text-xs">
-                                                                        <option value="-">- Aucun -</option>
-                                                                        <option value="0mg">0mg</option>
-                                                                        <option value="3mg">3mg</option>
-                                                                        <option value="6mg">6mg</option>
-                                                                        <option value="12mg">12mg</option>
-                                                                        <option value="18mg">18mg</option>
-                                                                        <option value="20mg">20mg</option>
-                                                                    </select>
-                                                                </div>
-                                                                <div>
-                                                                    <label className="text-[10px] text-slate-400">Volume</label>
-                                                                    <select value={v.volume_ml} onChange={e=>handleVariantChange(v.id, 'volume_ml', e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-lg px-2 py-1.5 text-xs">
-                                                                        <option value="-">- Aucun -</option>
-                                                                        <option value="10ml">10ml</option>
-                                                                        <option value="30ml">30ml</option>
-                                                                        <option value="50ml">50ml</option>
-                                                                        <option value="100ml">100ml</option>
-                                                                    </select>
-                                                                </div>
-                                                                <div>
-                                                                    <label className="text-[10px] text-slate-400">Coloris</label>
-                                                                    <input type="text" value={v.color_finish === '-' ? '' : v.color_finish} onChange={e=>handleVariantChange(v.id, 'color_finish', e.target.value || '-')} placeholder="Optionnel" className="w-full bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs" />
-                                                                </div>
-                                                            </div>
-                                                            <div>
-                                                                <label className="text-[10px] text-slate-400">Photo spécifique (optionnel)</label>
-                                                                <input type="file" accept="image/*" onChange={(e) => handleVariantImageUpload(v.id, e)} className="w-full bg-slate-900 border border-slate-800 rounded-lg px-2 py-1 text-[11px] text-slate-400" />
-                                                                {v.image_url && <img src={v.image_url} alt="Variante" className="w-10 h-10 object-contain rounded mt-1 border border-slate-800 bg-white p-0.5" />}
-                                                            </div>
-                                                        </div>
-                                                    ))}
+                                                        ))}
+                                                    </div>
                                                 </div>
 
                                                 <div className="flex gap-2">
@@ -1078,26 +1091,78 @@
                                             </form>
                                         </div>
 
+                                        {/* CLASSEMENT DES PRODUITS PAR RUBRIQUE ET DOSSIER DANS L'ADMIN */}
                                         <div className="lg:col-span-2 bg-slate-900 border border-slate-800 p-6 rounded-3xl">
-                                            <h2 className="text-sm font-bold uppercase text-indigo-400 mb-4">Catalogue dans Supabase ({products.length})</h2>
-                                            <div className="space-y-3 max-h-[600px] overflow-y-auto pr-2">
-                                                {products.map(p => (
-                                                    <div key={p.id} className="bg-slate-950 border border-slate-800 p-4 rounded-xl flex items-center justify-between">
-                                                        <div className="flex items-center space-x-3">
-                                                            <div className="w-12 h-12 bg-white rounded-lg border border-slate-800 flex items-center justify-center p-1">
-                                                                <img src={p.main_image_url} alt={p.name} className="max-w-full max-h-full object-contain" />
+                                            <h2 className="text-sm font-bold uppercase text-indigo-400 mb-4">Catalogue Classé par Rubriques & Dossiers ({products.length})</h2>
+                                            <div className="space-y-6 max-h-[600px] overflow-y-auto pr-2">
+                                                {categories.map(cat => {
+                                                    const catProducts = products.filter(p => p.category_id === cat.id);
+                                                    if (catProducts.length === 0) return null;
+
+                                                    const parentCat = categories.find(c => c.id === cat.parent_id);
+
+                                                    return (
+                                                        <div key={cat.id} className="bg-slate-950 border border-slate-800 rounded-2xl p-4 space-y-3">
+                                                            <div className="flex items-center space-x-2 border-b border-slate-800 pb-2">
+                                                                <span className="text-base">📁</span>
+                                                                <h3 className="font-black text-sm text-teal-400">
+                                                                    {parentCat ? `${parentCat.name} ↳ ${cat.name}` : cat.name}
+                                                                </h3>
+                                                                <span className="text-[10px] bg-slate-900 text-slate-400 px-2 py-0.5 rounded-full border border-slate-800 font-bold">
+                                                                    {catProducts.length} produit(s)
+                                                                </span>
                                                             </div>
-                                                            <div>
-                                                                <h3 className="font-bold text-sm text-slate-200">{p.name}</h3>
-                                                                <p className="text-xs text-slate-400">{p.variants.length} option(s) tarifaire(s) - Stock total : {p.variants.reduce((sum, v)=>sum+v.stock, 0)}</p>
+                                                            <div className="grid grid-cols-1 gap-2">
+                                                                {catProducts.map(p => (
+                                                                    <div key={p.id} className="bg-slate-900 border border-slate-800 p-3 rounded-xl flex items-center justify-between">
+                                                                        <div className="flex items-center space-x-3">
+                                                                            <div className="w-10 h-10 bg-white rounded-lg border border-slate-800 flex items-center justify-center p-1">
+                                                                                <img src={p.main_image_url} alt={p.name} className="max-w-full max-h-full object-contain" />
+                                                                            </div>
+                                                                            <div>
+                                                                                <h4 className="font-bold text-xs text-slate-200">{p.name}</h4>
+                                                                                <p className="text-[10px] text-slate-400">{p.variants.length} option(s) tarifaire(s) - Stock: {p.variants.reduce((sum, v)=>sum+v.stock, 0)}</p>
+                                                                            </div>
+                                                                        </div>
+                                                                        <div className="flex items-center space-x-2">
+                                                                            <button onClick={() => startEditProduct(p)} className="px-2.5 py-1 bg-amber-500/10 text-amber-400 border border-amber-500/30 rounded-lg text-xs font-bold">Modifier</button>
+                                                                            <button onClick={() => deleteProduct(p.id)} className="px-2.5 py-1 bg-rose-500/10 text-rose-400 border border-rose-500/30 rounded-lg text-xs font-bold">Supprimer</button>
+                                                                        </div>
+                                                                    </div>
+                                                                ))}
                                                             </div>
                                                         </div>
-                                                        <div className="flex items-center space-x-2">
-                                                            <button onClick={() => startEditProduct(p)} className="px-2.5 py-1 bg-amber-500/10 text-amber-400 border border-amber-500/30 rounded-lg text-xs font-bold">Modifier</button>
-                                                            <button onClick={() => deleteProduct(p.id)} className="px-2.5 py-1 bg-rose-500/10 text-rose-400 border border-rose-500/30 rounded-lg text-xs font-bold">Supprimer</button>
+                                                    );
+                                                })}
+
+                                                {/* Produits non classés dans une rubrique */}
+                                                {products.filter(p => !p.category_id).length > 0 && (
+                                                    <div className="bg-slate-950 border border-slate-800 rounded-2xl p-4 space-y-3">
+                                                        <div className="flex items-center space-x-2 border-b border-slate-800 pb-2">
+                                                            <span className="text-base">📦</span>
+                                                            <h3 className="font-black text-sm text-slate-400">Non classés</h3>
+                                                        </div>
+                                                        <div className="grid grid-cols-1 gap-2">
+                                                            {products.filter(p => !p.category_id).map(p => (
+                                                                <div key={p.id} className="bg-slate-900 border border-slate-800 p-3 rounded-xl flex items-center justify-between">
+                                                                    <div className="flex items-center space-x-3">
+                                                                        <div className="w-10 h-10 bg-white rounded-lg border border-slate-800 flex items-center justify-center p-1">
+                                                                            <img src={p.main_image_url} alt={p.name} className="max-w-full max-h-full object-contain" />
+                                                                        </div>
+                                                                        <div>
+                                                                            <h4 className="font-bold text-xs text-slate-200">{p.name}</h4>
+                                                                            <p className="text-[10px] text-slate-400">{p.variants.length} option(s) tarifaire(s)</p>
+                                                                        </div>
+                                                                    </div>
+                                                                    <div className="flex items-center space-x-2">
+                                                                        <button onClick={() => startEditProduct(p)} className="px-2.5 py-1 bg-amber-500/10 text-amber-400 border border-amber-500/30 rounded-lg text-xs font-bold">Modifier</button>
+                                                                        <button onClick={() => deleteProduct(p.id)} className="px-2.5 py-1 bg-rose-500/10 text-rose-400 border border-rose-500/30 rounded-lg text-xs font-bold">Supprimer</button>
+                                                                    </div>
+                                                                </div>
+                                                            ))}
                                                         </div>
                                                     </div>
-                                                ))}
+                                                )}
                                             </div>
                                         </div>
                                     </div>
@@ -1249,7 +1314,6 @@
                                             <div className="text-teal-400 font-black text-xl">{((currentVariant.price || 0) * currentQty).toLocaleString()} Ar</div>
                                             <p className="text-xs font-bold text-slate-400">Stock disponible : <span className={currentVariant.stock > 0 ? "text-emerald-400" : "text-rose-400"}>{currentVariant.stock || 0}</span></p>
                                             
-                                            {/* Détails complémentaires si renseignés */}
                                             <div className="space-y-1 pt-1">
                                                 {currentVariant.volume_ml && currentVariant.volume_ml !== '-' && (
                                                     <div className="text-xs bg-slate-950 border border-slate-800 px-3 py-1 rounded-xl">
@@ -1288,7 +1352,7 @@
                                     {product.variants.length > 1 && (
                                         <div className="space-y-1.5 pt-2 border-t border-slate-800">
                                             <span className="text-xs font-bold text-slate-400 uppercase">Changer d'option / déclinaison :</span>
-                                            <div className="flex flex-wrap gap-2">
+                                            <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto pr-1">
                                                 {product.variants.map(v => (
                                                     <button 
                                                         key={v.id} 
