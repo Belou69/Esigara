@@ -162,7 +162,7 @@
                 { id: 'var_1', price: '', stock: '0', nicotine_level: '-', volume_ml: '-', ohm_value: '-', color_finish: '-', flavor: '-', image_url: '' }
             ]);
 
-            // Calculateur de prix DIY automatique
+            // Calculateur de prix DIY Automatique
             const [isDiyCalculatorActive, setIsDiyCalculatorActive] = useState(false);
             const [diyBasePrice10ml, setDiyBasePrice10ml] = useState(15000);
             const [diyVolumeMl, setDiyVolumeMl] = useState(10);
@@ -690,7 +690,7 @@
                                 <div className="space-y-2">
                                     <h2 className="text-xl font-black text-slate-100">Avertissement Légal</h2>
                                     <p className="text-xs text-slate-400 leading-relaxed">
-                                        Les produits contenus sur <strong className="text-teal-400">Esigara.mg</strong> sont strictement réservés aux personnes majeures.
+                                        Les produits contenus sur <strong className="text-teal-400">Esigara.mg</strong> sont strictly réservés aux personnes majeures.
                                     </p>
                                     <p className="text-xs text-slate-300 font-semibold pt-2">
                                         Certifiez-vous avoir 18 ans ou plus ?
@@ -1135,7 +1135,6 @@
                                                     );
                                                 })}
 
-                                                {/* Produits non classés dans une rubrique */}
                                                 {products.filter(p => !p.category_id).length > 0 && (
                                                     <div className="bg-slate-950 border border-slate-800 rounded-2xl p-4 space-y-3">
                                                         <div className="flex items-center space-x-2 border-b border-slate-800 pb-2">
@@ -1285,7 +1284,7 @@
                         )}
                     </main>
 
-                    {/* MODAL FICHE PRODUIT DÉTAILLÉE */}
+                    {/* MODAL FICHE PRODUIT DÉTAILLÉE AVEC SÉLECTEURS DE VOLUME ET NICOTINE POUR LE CLIENT */}
                     {selectedProductModal && (() => {
                         const product = selectedProductModal;
                         const selectedVarId = selectedVariantByProduct[product.id] || product.variants[0]?.id;
@@ -1293,6 +1292,20 @@
                         const displayImage = currentVariant?.image_url || product.main_image_url;
                         const currentQty = quantityByProduct[product.id] || 1;
                         const brand = brands.find(b => b.id === product.brand_id);
+
+                        // Récupération dynamique de toutes les options de volume et nicotine disponibles pour ce produit
+                        const availableVolumes = Array.from(new Set(product.variants.map(v => v.volume_ml).filter(v => v && v !== '-')));
+                        const availableNicotines = Array.from(new Set(product.variants.map(v => v.nicotine_level).filter(v => v && v !== '-')));
+
+                        const handleDiySelectionChange = (newVol, newNic) => {
+                            const matchedVar = product.variants.find(v => 
+                                (newVol ? v.volume_ml === newVol : true) && 
+                                (newNic ? v.nicotine_level === newNic : true)
+                            );
+                            if (matchedVar) {
+                                setSelectedVariantByProduct({ ...selectedVariantByProduct, [product.id]: matchedVar.id });
+                            }
+                        };
 
                         return (
                             <div className="fixed inset-0 bg-slate-950/85 backdrop-blur-md z-50 flex items-center justify-center p-4">
@@ -1348,6 +1361,42 @@
                                             </div>
                                         </div>
                                     </div>
+
+                                    {/* CHOIX DU VOLUME ET TAUX DE NICOTINE PAR LE CLIENT */}
+                                    {(availableVolumes.length > 0 || availableNicotines.length > 0) && (
+                                        <div className="bg-slate-950 border border-teal-500/30 p-4 rounded-2xl space-y-3">
+                                            <span className="text-xs font-black uppercase text-teal-400 tracking-wider block">Personnaliser votre E-Liquide / DIY</span>
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                                {availableVolumes.length > 0 && (
+                                                    <div>
+                                                        <label className="text-[10px] font-bold text-slate-400 uppercase">Choisir la Contenance (Volume)</label>
+                                                        <select 
+                                                            value={currentVariant.volume_ml || ''} 
+                                                            onChange={(e) => handleDiySelectionChange(e.target.value, currentVariant.nicotine_level)}
+                                                            className="w-full mt-1 bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs font-bold text-teal-300 focus:outline-none focus:border-teal-500">
+                                                            {availableVolumes.map(vol => (
+                                                                <option key={vol} value={vol}>{vol}</option>
+                                                            ))}
+                                                        </select>
+                                                    </div>
+                                                )}
+
+                                                {availableNicotines.length > 0 && (
+                                                    <div>
+                                                        <label className="text-[10px] font-bold text-slate-400 uppercase">Choisir le Taux de Nicotine</label>
+                                                        <select 
+                                                            value={currentVariant.nicotine_level || ''} 
+                                                            onChange={(e) => handleDiySelectionChange(currentVariant.volume_ml, e.target.value)}
+                                                            className="w-full mt-1 bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs font-bold text-indigo-300 focus:outline-none focus:border-indigo-500">
+                                                            {availableNicotines.map(nic => (
+                                                                <option key={nic} value={nic}>{nic}</option>
+                                                            ))}
+                                                        </select>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    )}
 
                                     {product.variants.length > 1 && (
                                         <div className="space-y-1.5 pt-2 border-t border-slate-800">
