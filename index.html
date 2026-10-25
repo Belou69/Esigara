@@ -29,7 +29,7 @@
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
     <!-- Babel pour JSX -->
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    <!-- Client Supabase JS -->
+    <!-- Client Supabase JS (Base de données backend) -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body class="bg-slate-950 text-slate-100 min-h-screen selection:bg-teal-500 selection:text-slate-950 font-sans">
@@ -38,12 +38,12 @@
     <script type="text/babel">
         const { useState, useEffect } = React;
 
-        // Configuration Supabase
+        // Configuration du serveur
         const SUPABASE_URL = "https://fcagaagjkgwejtnvdzoj.supabase.co";
         const SUPABASE_ANON_KEY = "sb_publishable_oiiGr4O_j3Qs-udNt8if5w_SOPD-VG4";
         const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-        // Fonction utilitaire pour uploader les images vers Supabase Storage
+        // Utility pour téléverser sur le serveur d'images
         const uploadImageToSupabase = async (file) => {
             if (!file) return null;
             const fileExt = file.name.split('.').pop();
@@ -55,7 +55,7 @@
                 .upload(filePath, file);
 
             if (error) {
-                alert("Erreur lors de l'upload de l'image : " + error.message);
+                alert("Erreur d'upload image : " + error.message);
                 return null;
             }
 
@@ -67,7 +67,7 @@
         };
 
         function App() {
-            // Vérification de l'âge (+18 ans)
+            // Avertissement d'âge (+18 ans)
             const [isAgeVerified, setIsAgeVerified] = useState(false);
 
             useEffect(() => {
@@ -91,12 +91,12 @@
             const [selectedProductModal, setSelectedProductModal] = useState(null);
             const [isLoading, setIsLoading] = useState(true);
 
-            // Données réelles chargées depuis Supabase
+            // Données serveur
             const [brands, setBrands] = useState([]);
             const [categories, setCategories] = useState([]);
             const [products, setProducts] = useState([]);
 
-            // Configuration DIY globale avec 0mg, 3mg, 6mg, 9mg, 12mg
+            // Config globale DIY
             const [diyGlobalConfig, setDiyGlobalConfig] = useState(() => {
                 const saved = localStorage.getItem('esigara_diy_global_config');
                 return saved ? JSON.parse(saved) : {
@@ -109,10 +109,10 @@
             const saveDiyGlobalConfig = (newConfig) => {
                 setDiyGlobalConfig(newConfig);
                 localStorage.setItem('esigara_diy_global_config', JSON.stringify(newConfig));
-                alert('Configuration DIY enregistrée avec succès !');
+                alert('Configuration DIY enregistrée !');
             };
 
-            // Option globale pour masquer les produits en rupture
+            // Masquer la rupture
             const [hideOutOfStock, setHideOutOfStock] = useState(() => {
                 return localStorage.getItem('esigara_hide_out_of_stock') === 'true';
             });
@@ -122,7 +122,6 @@
                 localStorage.setItem('esigara_hide_out_of_stock', val ? 'true' : 'false');
             };
 
-            // Charger l'ensemble des données depuis Supabase au démarrage
             const loadDataFromSupabase = async () => {
                 setIsLoading(true);
                 try {
@@ -143,7 +142,7 @@
                         setProducts(fullProducts);
                     }
                 } catch (err) {
-                    console.error("Erreur de chargement Supabase :", err);
+                    console.error("Erreur de chargement :", err);
                 } finally {
                     setIsLoading(false);
                 }
@@ -153,7 +152,6 @@
                 loadDataFromSupabase();
             }, []);
 
-            // Support du bouton retour
             useEffect(() => {
                 const handlePopState = (event) => {
                     if (event.state) {
@@ -201,25 +199,21 @@
                 messengerUrl: 'https://m.me/esigaramg'
             });
 
-            // Formulaires d'administration Produit (avec ajout du champ flavor/saveur produit)
+            // Formulaire Admin Produit
             const [editingProductId, setEditingProductId] = useState(null);
             const [newProduct, setNewProduct] = useState({
-                name: '', flavor: '', brand_id: '', category_id: '', short_description: '', box_content: '', main_image_url: 'https://images.unsplash.com/photo-1539185441755-769473a23570?auto=format&fit=crop&w=600&q=80'
+                name: '', flavor: '', is_diy: false, brand_id: '', category_id: '', short_description: '', box_content: '', main_image_url: 'https://images.unsplash.com/photo-1539185441755-769473a23570?auto=format&fit=crop&w=600&q=80'
             });
             
             const [variantsList, setVariantsList] = useState([
                 { id: 'var_1', price: '', is_out_of_stock: false, nicotine_level: '-', volume_ml: '-', ohm_value: '-', color_finish: '-', flavor: '-', image_url: '' }
             ]);
 
-            const [isDiyProductChecked, setIsDiyProductChecked] = useState(false);
-
-            // Calculateur DIY : Multiplie (Prix de base + Surcoût Nicotine) par le multiplicateur de volume
             const calculateDiyVariantPrice = (volStr, nicStr) => {
                 const volVal = parseInt(volStr) || 10;
                 const multiplier = diyGlobalConfig.volumeMultipliers[volStr] || (volVal / 10);
                 const basePrice10ml = diyGlobalConfig.basePrice10ml || 0;
                 const nicBonus10ml = diyGlobalConfig.nicotineBonuses[nicStr] || 0;
-                
                 return Math.round((basePrice10ml + nicBonus10ml) * multiplier);
             };
 
@@ -246,7 +240,8 @@
                 });
 
                 setVariantsList(generated);
-                alert('Grille tarifaire DIY appliquée automatiquement avec le multiplicateur de nicotine !');
+                setNewProduct(prev => ({ ...prev, is_diy: true }));
+                alert('Grille DIY générée !');
             };
 
             const [newBrandName, setNewBrandName] = useState('');
@@ -318,7 +313,7 @@
             };
 
             const removeVariantField = (id) => {
-                if (variantsList.length === 1) return alert('Le produit doit avoir au moins un tarif/prix principal.');
+                if (variantsList.length === 1) return alert('Au moins 1 prix obligatoire.');
                 setVariantsList(variantsList.filter(v => v.id !== id));
             };
 
@@ -328,25 +323,27 @@
 
             const handleSaveProduct = async (e) => {
                 e.preventDefault();
-                if (!newProduct.name) return alert('Veuillez spécifier le nom du produit.');
+                if (!newProduct.name) return alert('Saisissez le nom du produit.');
                 if (variantsList.some(v => !v.price || isNaN(parseFloat(v.price)))) {
-                    return alert('Chaque déclinaison doit posséder au moins un prix valide.');
+                    return alert('Chaque déclinaison requiert un prix valide.');
                 }
 
                 const productId = editingProductId || Date.now().toString();
 
-                const { error: pError } = await supabaseClient.from('products').upsert([{
+                const productPayload = {
                     id: productId,
                     name: newProduct.name,
-                    flavor: newProduct.flavor || '',
+                    is_diy: newProduct.is_diy,
                     brand_id: newProduct.brand_id || null,
                     category_id: newProduct.category_id || null,
                     short_description: newProduct.short_description || '',
                     box_content: newProduct.box_content || '',
                     main_image_url: newProduct.main_image_url
-                }]);
+                };
 
-                if (pError) return alert('Erreur enregistrement produit : ' + pError.message);
+                const { error: pError } = await supabaseClient.from('products').upsert([productPayload]);
+
+                if (pError) return alert('Erreur produit : ' + pError.message);
 
                 if (editingProductId) {
                     await supabaseClient.from('variants').delete().eq('product_id', productId);
@@ -367,13 +364,12 @@
 
                 const { error: vError } = await supabaseClient.from('variants').insert(formattedVariants);
 
-                if (vError) return alert('Erreur enregistrement variantes : ' + vError.message);
+                if (vError) return alert('Erreur déclinaisons : ' + vError.message);
 
-                alert(editingProductId ? 'Produit mis à jour avec succès !' : 'Produit enregistré avec succès !');
+                alert(editingProductId ? 'Produit mis à jour !' : 'Produit enregistré !');
                 setEditingProductId(null);
-                setNewProduct({ name: '', flavor: '', brand_id: '', category_id: '', short_description: '', box_content: '', main_image_url: 'https://images.unsplash.com/photo-1539185441755-769473a23570?auto=format&fit=crop&w=600&q=80' });
+                setNewProduct({ name: '', flavor: '', is_diy: false, brand_id: '', category_id: '', short_description: '', box_content: '', main_image_url: 'https://images.unsplash.com/photo-1539185441755-769473a23570?auto=format&fit=crop&w=600&q=80' });
                 setVariantsList([{ id: 'var_1', price: '', is_out_of_stock: false, nicotine_level: '-', volume_ml: '-', ohm_value: '-', color_finish: '-', flavor: '-', image_url: '' }]);
-                setIsDiyProductChecked(false);
                 loadDataFromSupabase();
             };
 
@@ -382,6 +378,7 @@
                 setNewProduct({
                     name: prod.name,
                     flavor: prod.flavor || '',
+                    is_diy: !!prod.is_diy,
                     brand_id: prod.brand_id || '',
                     category_id: prod.category_id || '',
                     short_description: prod.short_description || '',
@@ -402,7 +399,7 @@
             };
 
             const deleteProduct = async (id) => {
-                if (confirm('Voulez-vous vraiment supprimer ce produit ?')) {
+                if (confirm('Supprimer ce produit ?')) {
                     await supabaseClient.from('products').delete().eq('id', id);
                     loadDataFromSupabase();
                 }
@@ -424,12 +421,12 @@
                 setNewBrandName(''); 
                 setNewBrandDesc('');
                 setNewBrandLogo('https://images.unsplash.com/photo-1539185441755-769473a23570?auto=format&fit=crop&w=200&q=80');
-                alert('Marque ajoutée avec succès !');
+                alert('Marque ajoutée !');
                 loadDataFromSupabase();
             };
 
             const deleteBrand = async (id) => {
-                if (confirm('Voulez-vous vraiment supprimer cette marque ?')) {
+                if (confirm('Supprimer cette marque ?')) {
                     await supabaseClient.from('brands').delete().eq('id', id);
                     loadDataFromSupabase();
                 }
@@ -454,7 +451,7 @@
                 setNewCatName('');
                 setNewCatParent('');
                 setNewCatImage('https://images.unsplash.com/photo-1527661591475-527312dd65f5?auto=format&fit=crop&w=600&q=80');
-                alert(newCatParent ? 'Dossier / sous-rubrique enregistré !' : 'Rubrique principale enregistrée !');
+                alert('Rubrique enregistrée !');
                 loadDataFromSupabase();
             };
 
@@ -473,7 +470,7 @@
             };
 
             const deleteCategory = async (id) => {
-                if (confirm('Voulez-vous supprimer cette rubrique ou ce dossier ? Les sous-dossiers et éléments rattachés seront également impactés.')) {
+                if (confirm('Supprimer cette rubrique ?')) {
                     await supabaseClient.from('categories').delete().eq('id', id);
                     loadDataFromSupabase();
                 }
@@ -534,7 +531,7 @@
                     ? product.variants.filter(v => (v.stock ?? 1) > 0)
                     : product.variants;
 
-                if (availableVariants.length === 0) return null;
+                if (availableVariants.length === 0 && hideOutOfStock) return null;
 
                 const selectedVarId = selectedVariantByProduct[product.id] || availableVariants[0]?.id;
                 const currentVariant = availableVariants.find(v => v.id === selectedVarId) || availableVariants[0] || {};
@@ -559,7 +556,7 @@
                                     <p className="text-[11px] sm:text-xs text-slate-400 line-clamp-2 leading-relaxed">{product.short_description}</p>
                                 )}
 
-                                {hasMultipleVariants ? (
+                                {!product.is_diy && hasMultipleVariants ? (
                                     <div className="pt-2 space-y-1.5 border-t border-slate-800/60">
                                         <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block">Déclinaisons :</span>
                                         <div className="flex flex-wrap gap-1 max-h-20 overflow-y-auto pr-1">
@@ -645,7 +642,7 @@
                 const qty = qtyOverride !== null ? qtyOverride : (parseInt(quantityByProduct[product.id]) || 1);
                 
                 if ((variant.stock ?? 1) === 0) {
-                    return alert(`Cette déclinaison est en rupture de stock.`);
+                    return alert(`Déclinaison en rupture de stock.`);
                 }
 
                 const chosenFlavor = variant.flavor || product.flavor || 'Standard';
@@ -967,7 +964,7 @@
                                     </button>
                                 </div>
 
-                                {/* ONGLET CONFIGURATION DIY INDÉPENDANTE */}
+                                {/* CONFIGURATION DIY */}
                                 {adminTab === 'diy_config' && (
                                     <div className="bg-slate-900 border border-slate-800 p-8 rounded-3xl max-w-2xl mx-auto space-y-6">
                                         <div className="border-b border-slate-800 pb-4">
@@ -1054,10 +1051,9 @@
                                                     <input type="text" value={newProduct.name} onChange={e=>setNewProduct({...newProduct, name: e.target.value})} placeholder="ex: Nasty Juice Grape" className="w-full mt-1 bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-sm" required />
                                                 </div>
                                                 
-                                                {/* CHAMP SAVEUR DU PRODUIT */}
                                                 <div>
-                                                    <label className="text-xs text-amber-400 font-bold uppercase">Saveur / Arôme du produit</label>
-                                                    <input type="text" value={newProduct.flavor} onChange={e=>setNewProduct({...newProduct, flavor: e.target.value})} placeholder="ex: Raisin noir frais, Menthe glacée..." className="w-full mt-1 bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-sm" />
+                                                    <label className="text-xs text-amber-400 font-bold uppercase">Saveur / Arôme principal (Optionnel)</label>
+                                                    <input type="text" value={newProduct.flavor} onChange={e=>setNewProduct({...newProduct, flavor: e.target.value})} placeholder="ex: Raisin noir frais..." className="w-full mt-1 bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-sm" />
                                                 </div>
 
                                                 <div className="grid grid-cols-2 gap-2">
@@ -1087,20 +1083,27 @@
 
                                                 <div>
                                                     <label className="text-xs text-teal-400 font-bold uppercase">Contenu de la boîte (Box Content)</label>
-                                                    <textarea value={newProduct.box_content} onChange={e=>setNewProduct({...newProduct, box_content: e.target.value})} placeholder="ex: 1x Flacon 10ml / 60ml... (optionnel)" className="w-full mt-1 bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-sm" rows="2"></textarea>
+                                                    <textarea value={newProduct.box_content} onChange={e=>setNewProduct({...newProduct, box_content: e.target.value})} placeholder="ex: 1x Flacon 10ml... (optionnel)" className="w-full mt-1 bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-sm" rows="2"></textarea>
                                                 </div>
 
-                                                {/* OPTION DIY AUTOMATIQUE SUR LE PRODUIT */}
+                                                {/* CASE À COCHER DIY PROPRIÉTAIRE AU PRODUIT */}
                                                 <div className="bg-slate-950 border border-teal-500/40 p-4 rounded-2xl space-y-3">
                                                     <div className="flex items-center justify-between">
-                                                        <span className="text-xs font-bold text-teal-400 uppercase">Appliquer les prix DIY automatiques</span>
-                                                        <input type="checkbox" checked={isDiyProductChecked} onChange={e=>setIsDiyProductChecked(e.target.checked)} className="w-4 h-4 accent-teal-500 cursor-pointer" />
+                                                        <div>
+                                                            <span className="text-xs font-bold text-teal-400 uppercase block">Activer l'option DIY sur ce produit</span>
+                                                            <span className="text-[10px] text-slate-400">Affiche le calculateur de dosage interactif au client sur la fiche produit.</span>
+                                                        </div>
+                                                        <input 
+                                                            type="checkbox" 
+                                                            checked={newProduct.is_diy} 
+                                                            onChange={e => setNewProduct({...newProduct, is_diy: e.target.checked})} 
+                                                            className="w-5 h-5 accent-teal-500 cursor-pointer" 
+                                                        />
                                                     </div>
-                                                    {isDiyProductChecked && (
+                                                    {newProduct.is_diy && (
                                                         <div className="space-y-2 pt-1 text-xs">
-                                                            <p className="text-[10px] text-slate-400">Génère automatiquement les déclinaisons (10ml, 30ml, 50ml, 100ml / 0mg, 3mg, 6mg, 9mg, 12mg) avec le multiplicateur de volume appliqué à la nicotine.</p>
                                                             <button type="button" onClick={applyGlobalDiyToVariants} className="w-full py-2 bg-teal-500/20 text-teal-300 border border-teal-500/30 rounded-xl font-bold text-[11px] hover:bg-teal-500 hover:text-slate-950 transition">
-                                                                ⚡ Appliquer la grille DIY automatique
+                                                                ⚡ Appliquer la grille DIY automatique (10, 30, 50, 100ml / 0 à 12mg)
                                                             </button>
                                                         </div>
                                                     )}
@@ -1128,7 +1131,7 @@
                                                                 <div className="grid grid-cols-2 gap-2">
                                                                     <div>
                                                                         <label className="text-[10px] text-slate-400 font-bold text-rose-400">Prix (Ar) *</label>
-                                                                        <input type="number" value={v.price} onChange={e=>handleVariantChange(v.id, 'price', e.target.value)} placeholder="ex: 18000" className="w-full bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs" required />
+                                                                        <input type="number" value={v.price} onChange={e=>handleVariantChange(v.id, 'price', e.target.value)} placeholder="ex: 5000" className="w-full bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs" required />
                                                                     </div>
                                                                     <div>
                                                                         <label className="text-[10px] text-slate-400">Saveur spécifique</label>
@@ -1145,6 +1148,7 @@
                                                                             <option value="6mg">6mg</option>
                                                                             <option value="9mg">9mg</option>
                                                                             <option value="12mg">12mg</option>
+                                                                            <option value="20mg">20mg</option>
                                                                         </select>
                                                                     </div>
                                                                     <div>
@@ -1183,7 +1187,7 @@
 
                                                 <div className="flex gap-2">
                                                     <button type="submit" className="flex-1 py-3 bg-indigo-600 hover:bg-indigo-500 rounded-xl font-bold text-xs uppercase tracking-wider">
-                                                        {editingProductId ? 'Mettre à jour' : 'Enregistrer dans Supabase'}
+                                                        {editingProductId ? 'Mettre à jour' : 'Enregistrer le produit'}
                                                     </button>
                                                     {editingProductId && (
                                                         <button type="button" onClick={() => setEditingProductId(null)} className="px-4 py-3 bg-slate-800 rounded-xl text-xs font-bold">Annuler</button>
@@ -1220,8 +1224,10 @@
                                                                                 <img src={p.main_image_url} alt={p.name} className="max-w-full max-h-full object-contain" />
                                                                             </div>
                                                                             <div>
-                                                                                <h4 className="font-bold text-xs text-slate-200">{p.name}</h4>
-                                                                                {p.flavor && <p className="text-[10px] text-amber-400">Saveur : {p.flavor}</p>}
+                                                                                <div className="flex items-center space-x-1.5">
+                                                                                    <h4 className="font-bold text-xs text-slate-200">{p.name}</h4>
+                                                                                    {p.is_diy && <span className="text-[9px] bg-teal-500/20 text-teal-300 font-bold px-1.5 py-0.5 rounded-full">DIY</span>}
+                                                                                </div>
                                                                                 <p className="text-[10px] text-slate-400">{p.variants.length} option(s) tarifaire(s)</p>
                                                                             </div>
                                                                         </div>
@@ -1250,8 +1256,10 @@
                                                                             <img src={p.main_image_url} alt={p.name} className="max-w-full max-h-full object-contain" />
                                                                         </div>
                                                                         <div>
-                                                                            <h4 className="font-bold text-xs text-slate-200">{p.name}</h4>
-                                                                            {p.flavor && <p className="text-[10px] text-amber-400">Saveur : {p.flavor}</p>}
+                                                                            <div className="flex items-center space-x-1.5">
+                                                                                <h4 className="font-bold text-xs text-slate-200">{p.name}</h4>
+                                                                                {p.is_diy && <span className="text-[9px] bg-teal-500/20 text-teal-300 font-bold px-1.5 py-0.5 rounded-full">DIY</span>}
+                                                                            </div>
                                                                             <p className="text-[10px] text-slate-400">{p.variants.length} option(s) tarifaire(s)</p>
                                                                         </div>
                                                                     </div>
@@ -1324,7 +1332,7 @@
                                                 <form onSubmit={handleSaveCategory} className="space-y-3">
                                                     <div>
                                                         <label className="text-xs text-slate-400 font-bold uppercase">Nom du dossier / sous-rubrique</label>
-                                                        <input type="text" value={newCatName} onChange={e=>setNewCatName(e.target.value)} placeholder="ex: E-Liquides, Fruités, Sels de Nicotine..." className="w-full mt-1 bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-sm" required />
+                                                        <input type="text" value={newCatName} onChange={e=>setNewCatName(e.target.value)} placeholder="ex: E-Liquides, Fruités..." className="w-full mt-1 bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-sm" required />
                                                     </div>
                                                     <div>
                                                         <label className="text-xs text-slate-400 font-bold uppercase">Rattacher à un dossier parent (Emplacement)</label>
@@ -1452,6 +1460,7 @@
                                             <div className="text-teal-400 font-black text-xl">{((currentVariant.price || 0) * currentQty).toLocaleString()} Ar</div>
                                             <p className="text-xs font-bold text-slate-400">Statut : <span className={!isOutOfStock ? "text-emerald-400" : "text-rose-400"}>{!isOutOfStock ? "Disponible" : "En rupture de stock"}</span></p>
                                             
+                                            {/* ATTRIBUTS DU PRODUIT */}
                                             <div className="space-y-1 pt-1">
                                                 {currentVariant.volume_ml && currentVariant.volume_ml !== '-' && (
                                                     <div className="text-xs bg-slate-950 border border-slate-800 px-3 py-1 rounded-xl">
@@ -1467,7 +1476,7 @@
                                                 )}
                                                 {currentFlavor && (
                                                     <div className="text-xs bg-slate-950 border border-slate-800 px-3 py-1 rounded-xl">
-                                                        <span className="text-slate-400 font-bold">Saveur choisie : </span>
+                                                        <span className="text-slate-400 font-bold">Saveur : </span>
                                                         <span className="text-amber-300 font-extrabold">{currentFlavor}</span>
                                                     </div>
                                                 )}
@@ -1487,8 +1496,8 @@
                                         </div>
                                     </div>
 
-                                    {/* SÉLECTEUR DIY : CONTENANCES & NICOTINE (0mg INCLUS) */}
-                                    {(availableVolumes.length > 0 || availableNicotines.length > 0) && (
+                                    {/* CALCULATEUR DIY : VISIBLE UNIQUEMENT SI PRODUCT.IS_DIY EST COCHÉ */}
+                                    {product.is_diy && (availableVolumes.length > 0 || availableNicotines.length > 0) && (
                                         <div className="bg-slate-950 border border-teal-500/30 p-4 rounded-2xl space-y-3">
                                             <span className="text-xs font-black uppercase text-teal-400 tracking-wider block">Calculateur DIY & Options de Dosage</span>
                                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -1609,7 +1618,7 @@
                     <footer className="border-t border-slate-800/80 bg-slate-900/40 py-6 text-center text-xs text-slate-500 mt-16 flex flex-col items-center justify-center space-y-2">
                         <p>Esigara.mg — Solutions E-commerce & Vape à Madagascar.</p>
                         <button onClick={() => setShowAuthModal(true)} className="text-[10px] text-slate-700 hover:text-slate-400 transition">
-                            Connexion Administrateur Supabase
+                            Espace d'Administration
                         </button>
                     </footer>
 
@@ -1622,7 +1631,7 @@
                                 </div>
                                 <form onSubmit={handleSupabaseLogin} className="space-y-4">
                                     <div>
-                                        <label className="text-[11px] font-bold text-slate-400 uppercase">Email (Login Supabase)</label>
+                                        <label className="text-[11px] font-bold text-slate-400 uppercase">Identifiant / Email</label>
                                         <input type="email" value={adminEmail} onChange={e=>setAdminEmail(e.target.value)} placeholder="admin@esigara.mg" className="w-full mt-1 bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-sm" required />
                                     </div>
                                     <div>
