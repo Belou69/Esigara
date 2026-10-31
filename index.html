@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#020617">
     <title>Esigara.mg - E-commerce Vape Madagascar</title>
 
     <!-- Balises Anti-Cache -->
@@ -10,6 +11,21 @@
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
 
+    <script>
+        // Applique le thème enregistré avant l'affichage (évite le flash)
+        (function () {
+            var t = 'dark';
+            try { t = localStorage.getItem('esigara_theme') === 'light' ? 'light' : 'dark'; } catch (e) {}
+            document.documentElement.className = t;
+        })();
+    </script>
+    <style>
+        :root { --sl-50:248 250 252;--sl-100:241 245 249;--sl-200:226 232 240;--sl-300:203 213 225;--sl-400:148 163 184;--sl-500:100 116 139;--sl-600:71 85 105;--sl-700:51 65 85;--sl-800:30 41 59;--sl-900:15 23 42;--sl-950:2 6 23;--teal-300:94 234 212;--teal-400:45 212 191;--indigo-300:165 180 252;--indigo-400:129 140 248;--emerald-300:110 231 183;--emerald-400:52 211 153;--purple-300:216 180 254;--purple-400:192 132 252;--amber-300:252 211 77;--amber-400:251 191 36;--rose-300:253 164 175;--rose-400:251 113 133; }
+        html.light { --sl-50:2 6 23;--sl-100:15 23 42;--sl-200:30 41 59;--sl-300:51 65 85;--sl-400:71 85 105;--sl-500:100 116 139;--sl-600:148 163 184;--sl-700:203 213 225;--sl-800:226 232 240;--sl-900:255 255 255;--sl-950:241 245 249;--teal-300:17 94 89;--teal-400:15 118 110;--indigo-300:67 56 202;--indigo-400:79 70 229;--emerald-300:4 120 87;--emerald-400:5 150 105;--purple-300:107 33 168;--purple-400:147 51 234;--amber-300:180 83 9;--amber-400:217 119 6;--rose-300:190 18 60;--rose-400:225 29 72; }
+        html.dark { color-scheme: dark; }
+        html.light { color-scheme: light; }
+        body { transition: background-color .25s ease, color .25s ease; }
+    </style>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
@@ -18,7 +34,13 @@
             theme: {
                 extend: {
                     colors: {
-                        dark: { 800: '#1e293b', 900: '#0f172a', 950: '#020617' }
+                        slate: { 50: 'rgb(var(--sl-50) / <alpha-value>)', 100: 'rgb(var(--sl-100) / <alpha-value>)', 200: 'rgb(var(--sl-200) / <alpha-value>)', 300: 'rgb(var(--sl-300) / <alpha-value>)', 400: 'rgb(var(--sl-400) / <alpha-value>)', 500: 'rgb(var(--sl-500) / <alpha-value>)', 600: 'rgb(var(--sl-600) / <alpha-value>)', 700: 'rgb(var(--sl-700) / <alpha-value>)', 800: 'rgb(var(--sl-800) / <alpha-value>)', 900: 'rgb(var(--sl-900) / <alpha-value>)', 950: 'rgb(var(--sl-950) / <alpha-value>)' },
+                        teal: { 300: 'rgb(var(--teal-300) / <alpha-value>)', 400: 'rgb(var(--teal-400) / <alpha-value>)' },
+                        indigo: { 300: 'rgb(var(--indigo-300) / <alpha-value>)', 400: 'rgb(var(--indigo-400) / <alpha-value>)' },
+                        emerald: { 300: 'rgb(var(--emerald-300) / <alpha-value>)', 400: 'rgb(var(--emerald-400) / <alpha-value>)' },
+                        purple: { 300: 'rgb(var(--purple-300) / <alpha-value>)', 400: 'rgb(var(--purple-400) / <alpha-value>)' },
+                        amber: { 300: 'rgb(var(--amber-300) / <alpha-value>)', 400: 'rgb(var(--amber-400) / <alpha-value>)' },
+                        rose: { 300: 'rgb(var(--rose-300) / <alpha-value>)', 400: 'rgb(var(--rose-400) / <alpha-value>)' }
                     }
                 }
             }
@@ -32,7 +54,7 @@
     <!-- Client Base de données -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
-<body class="bg-slate-950 text-slate-100 min-h-screen selection:bg-teal-500 selection:text-slate-950 font-sans">
+<body class="bg-slate-950 text-slate-100 min-h-screen selection:bg-teal-500 selection:text-black font-sans">
     <div id="root"></div>
 
     <script type="text/babel">
@@ -76,6 +98,12 @@
             if (isSet(v.color_finish)) parts.push(v.color_finish);
             return parts;
         };
+
+const DIY_VOLUMES = ['10ml', '30ml', '50ml', '100ml', '200ml', '500ml'];
+        const DIY_NICOTINES = ['0mg', '3mg', '6mg'];
+
+        // Tri stable des rubriques selon l'ordre d'affichage choisi par l'administrateur
+        const sortCategories = (list) => list.slice().sort((a, b) => (a.display_order ?? 0) - (b.display_order ?? 0));
 
         const fetchAll = async (table) => {
             const pageSize = 1000;
@@ -180,7 +208,7 @@
                                 onClick={() => onSelect(v.id)}
                                 className={`${size === 'sm' ? 'text-[9px] sm:text-[10px] px-2 py-1' : 'text-xs px-3 py-1.5'} rounded-lg border font-semibold transition ${
                                     isSelected
-                                        ? 'bg-teal-500 text-slate-950 border-teal-400 font-black shadow-sm'
+                                        ? 'bg-teal-500 text-black border-teal-400 font-black shadow-sm'
                                         : 'bg-slate-950 text-slate-300 border-slate-800 hover:border-slate-700'
                                 } ${!isInStock(v) ? 'line-through opacity-60' : ''}`}
                             >
@@ -245,7 +273,7 @@
                             <button
                                 onClick={() => onAdd(product, currentVariant, qty)}
                                 disabled={unavailable}
-                                className="w-full py-2 bg-teal-500 hover:bg-teal-400 disabled:opacity-40 text-slate-950 rounded-xl text-[10px] sm:text-xs font-bold transition shadow-md shadow-teal-500/20 active:scale-95">
+                                className="w-full py-2 bg-teal-500 hover:bg-teal-400 disabled:opacity-40 text-black rounded-xl text-[10px] sm:text-xs font-bold transition shadow-md shadow-teal-500/20 active:scale-95">
                                 {unavailable ? 'Épuisé' : 'Ajouter'}
                             </button>
                         </div>
@@ -269,42 +297,9 @@
                                 {brand && <span className="text-[10px] bg-teal-500/20 text-teal-400 px-2.5 py-0.5 rounded-full font-bold uppercase">{brand.name}</span>}
                                 <h3 className="text-lg font-black text-slate-100 mt-1">{product.name}</h3>
                             </div>
-                            <button onClick={onClose} className="text-slate-400 hover:text-white font-bold text-lg">✕</button>
+                            <button onClick={onClose} className="text-slate-400 hover:text-slate-100 font-bold text-lg">✕</button>
                         </div>
 
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div className="w-full h-48 sm:h-56 bg-white rounded-2xl border border-slate-800 flex items-center justify-center p-3 relative">
-                                <img src={displayImage} alt={product.name} className="max-w-full max-h-full object-contain" />
-                                {currentVariant.id && !isInStock(currentVariant) && <span className="absolute top-2 right-2 bg-rose-500 text-white text-[10px] font-bold px-2.5 py-0.5 rounded-full">En rupture</span>}
-                            </div>
-                            <div className="space-y-3">
-                                {product.short_description && <p className="text-xs text-slate-300 leading-relaxed">{product.short_description}</p>}
-                                <div className="text-teal-400 font-black text-xl">{fmt((currentVariant.price || 0) * qty)} Ar</div>
-                                <p className="text-xs font-bold text-slate-400">Statut : <span className={!unavailable ? "text-emerald-400" : "text-rose-400"}>{!unavailable ? "Disponible" : "En rupture de stock"}</span></p>
-
-                                <div className="space-y-1 pt-1">
-                                    {isSet(currentVariant.volume_ml) && (
-                                        <div className="text-xs bg-slate-950 border border-slate-800 px-3 py-1 rounded-xl">
-                                            <span className="text-slate-400 font-bold">Contenance : </span>
-                                            <span className="text-teal-300 font-extrabold">{currentVariant.volume_ml}</span>
-                                        </div>
-                                    )}
-                                    {isSet(currentVariant.nicotine_level) && (
-                                        <div className="text-xs bg-slate-950 border border-slate-800 px-3 py-1 rounded-xl">
-                                            <span className="text-slate-400 font-bold">Taux de Nicotine : </span>
-                                            <span className="text-indigo-300 font-extrabold">{currentVariant.nicotine_level}</span>
-                                        </div>
-                                    )}
-                                    {currentFlavor && (
-                                        <div className="text-xs bg-slate-950 border border-slate-800 px-3 py-1 rounded-xl">
-                                            <span className="text-slate-400 font-bold">Saveur : </span>
-                                            <span className="text-amber-300 font-extrabold">{currentFlavor}</span>
-                                        </div>
-                                    )}
-                                    {isSet(currentVariant.ohm_value) && (
-                                        <div className="text-xs bg-slate-950 border border-slate-800 px-3 py-1 rounded-xl">
-                                            <span className="text-slate-400 font-bold">Résistance : </span>
-                                            <span className="text-emerald-300 font-extrabold">{currentVariant.ohm_value}</span>
-                                        </div>
-                                    )}
-                                    {isSet(currentVariant.color_finish)
+                           
