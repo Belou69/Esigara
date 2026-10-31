@@ -102,7 +102,7 @@
             hideOutOfStock: false
         };
 
-        const EMPTY_PRODUCT = { name: '', flavor: '', brand_id: '', category_id: '', short_description: '', box_content: '', main_image_url: DEFAULT_IMG };
+        const EMPTY_PRODUCT = { name: '', flavor: '', brand_id: '', category_id: '', short_description: '', box_content: '', product_type: '', specs: [], main_image_url: DEFAULT_IMG };
         const EMPTY_VARIANT = () => ({ id: 'var_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6), price: '', is_out_of_stock: false, nicotine_level: '-', volume_ml: '-', ohm_value: '-', color_finish: '-', flavor: '-', image_url: '' });
 
         // ====================================================================
@@ -123,7 +123,137 @@
             return parts;
         };
 
-const DIY_VOLUMES = ['10ml', '30ml', '50ml', '100ml', '200ml', '500ml'];
+        // ====================================================================
+        // Caractéristiques techniques par type de produit
+        // ====================================================================
+        const OPT_DRAW = ['MTL (tirage serré, proche de la cigarette)', 'RDL (tirage intermédiaire)', 'DTL (tirage aérien, grosse vapeur)'];
+        const OPT_YESNO = ['Oui', 'Non'];
+        const PRODUCT_TYPES = {
+            pod: { label: 'Kit Pod / Système pod', fields: [
+                { label: 'Batterie (mAh)', placeholder: 'ex: 1350 mAh' },
+                { label: 'Puissance (W)', placeholder: 'ex: 5-25 W ou puissance fixe' },
+                { label: 'Capacité du pod (ml)', placeholder: 'ex: 2 ml' },
+                { label: 'Type de pod', options: ['Rechargeable (ouvert)', 'Prérempli (fermé)'] },
+                { label: 'Résistance de la coil (Ω)', placeholder: 'ex: 0.8 Ω' },
+                { label: 'Style de tirage', options: OPT_DRAW },
+                { label: 'Recharge', placeholder: 'ex: USB-C, environ 60 min' },
+                { label: 'Écran', options: OPT_YESNO },
+                { label: 'Flux d\'air réglable', options: OPT_YESNO },
+                { label: 'Matériau', placeholder: 'ex: Alliage de zinc' }
+            ]},
+            mod: { label: 'Box / Mod', fields: [
+                { label: 'Accus', placeholder: 'ex: 2 × 18650 (non fournis)' },
+                { label: 'Puissance maximale (W)', placeholder: 'ex: 200 W' },
+                { label: 'Plage de résistance (Ω)', placeholder: 'ex: 0.1 - 3.0 Ω' },
+                { label: 'Modes', placeholder: 'ex: Wattage, contrôle de température' },
+                { label: 'Écran', options: OPT_YESNO },
+                { label: 'Connectique atomiseur', placeholder: 'ex: 510' },
+                { label: 'Diamètre max. de l\'atomiseur (mm)', placeholder: 'ex: 25 mm' },
+                { label: 'Recharge', placeholder: 'ex: USB-C 2A' },
+                { label: 'Protections', placeholder: 'ex: court-circuit, surchauffe, inversion de polarité' },
+                { label: 'Matériau', placeholder: 'ex: Inox, zinc' }
+            ]},
+            atomizer: { label: 'Atomiseur / Clearomiseur', fields: [
+                { label: 'Capacité du réservoir (ml)', placeholder: 'ex: 5 ml' },
+                { label: 'Diamètre (mm)', placeholder: 'ex: 25 mm' },
+                { label: 'Résistance fournie (Ω)', placeholder: 'ex: 0.2 Ω' },
+                { label: 'Type de coil', placeholder: 'ex: Mesh' },
+                { label: 'Puissance recommandée (W)', placeholder: 'ex: 40-70 W' },
+                { label: 'Style de tirage', options: OPT_DRAW },
+                { label: 'Remplissage', options: ['Par le haut', 'Latéral', 'Par le bas'] },
+                { label: 'Flux d\'air réglable', options: OPT_YESNO },
+                { label: 'Connectique', placeholder: 'ex: 510' },
+                { label: 'Coils compatibles', placeholder: 'ex: Série GT' }
+            ]},
+            coil: { label: 'Résistance / Coil', fields: [
+                { label: 'Résistance (Ω)', placeholder: 'ex: 0.6 Ω' },
+                { label: 'Puissance recommandée (W)', placeholder: 'ex: 25-35 W' },
+                { label: 'Matériau', placeholder: 'ex: Mesh, Kanthal, Inox' },
+                { label: 'Style de tirage', options: OPT_DRAW },
+                { label: 'Compatible avec', placeholder: 'ex: Série GT, pods XYZ' },
+                { label: 'Quantité par pack', placeholder: 'ex: 5' }
+            ]},
+            battery: { label: 'Accu / Batterie', fields: [
+                { label: 'Format', options: ['18650', '20700', '21700'] },
+                { label: 'Capacité (mAh)', placeholder: 'ex: 3000 mAh' },
+                { label: 'Courant de décharge max. (A)', placeholder: 'ex: 30 A' },
+                { label: 'Tension nominale', placeholder: 'ex: 3.7 V' },
+                { label: 'Quantité par pack', placeholder: 'ex: 2' },
+                { label: 'Protégé', options: OPT_YESNO }
+            ]},
+            charger: { label: 'Chargeur', fields: [
+                { label: 'Nombre d\'emplacements', placeholder: 'ex: 2' },
+                { label: 'Formats compatibles', placeholder: 'ex: 18650, 20700, 21700' },
+                { label: 'Courant de charge (A)', placeholder: 'ex: 2 A' },
+                { label: 'Port / alimentation', placeholder: 'ex: USB-C' },
+                { label: 'Protections', placeholder: 'ex: surcharge, court-circuit' }
+            ]},
+            eliquid: { label: 'E-liquide prêt à vapoter', fields: [
+                { label: 'Ratio PG/VG', placeholder: 'ex: 50/50', options: ['50/50', '70/30', '30/70'] },
+                { label: 'Type de nicotine', options: ['Nicotine classique (freebase)', 'Sel de nicotine', 'Sans nicotine'] },
+                { label: 'Famille de saveur', options: ['Fruité', 'Gourmand', 'Tabac', 'Menthe / Frais', 'Boisson', 'Autre'] },
+                { label: 'Adapté pour', placeholder: 'ex: Pod, MTL, DTL' },
+                { label: 'Fabricant / Origine', placeholder: 'ex: France' }
+            ]},
+            diy: { label: 'DIY : arôme, base, booster', fields: [
+                { label: 'Type de produit', options: ['Arôme concentré', 'Base PG/VG', 'Booster de nicotine', 'Shortfill'] },
+                { label: 'Ratio PG/VG', placeholder: 'ex: 50/50' },
+                { label: 'Dosage conseillé', placeholder: 'ex: 10 à 20 %' },
+                { label: 'Temps de macération', placeholder: 'ex: 3 à 7 jours' },
+                { label: 'Famille de saveur', options: ['Fruité', 'Gourmand', 'Tabac', 'Menthe / Frais', 'Boisson', 'Autre'] },
+                { label: 'Fabricant / Origine', placeholder: 'ex: France' }
+            ]},
+            disposable: { label: 'Jetable / Puff', fields: [
+                { label: 'Nombre de bouffées', placeholder: 'ex: 600' },
+                { label: 'Nicotine', placeholder: 'ex: 20 mg/ml' },
+                { label: 'Capacité e-liquide (ml)', placeholder: 'ex: 2 ml' },
+                { label: 'Batterie (mAh)', placeholder: 'ex: 550 mAh' },
+                { label: 'Rechargeable', options: OPT_YESNO }
+            ]},
+            accessory: { label: 'Accessoire', fields: [
+                { label: 'Compatibilité', placeholder: 'ex: Tous pods 510' },
+                { label: 'Matériau', placeholder: 'ex: Silicone' },
+                { label: 'Contenu', placeholder: 'ex: 1 étui + 1 câble' }
+            ]}
+        };
+        const COMMON_SPEC_FIELDS = [
+            { label: 'Dimensions', placeholder: 'ex: 90 × 25 × 15 mm' },
+            { label: 'Poids', placeholder: 'ex: 60 g' },
+            { label: 'Garantie', placeholder: 'ex: 3 mois' },
+            { label: 'Fabricant / Origine', placeholder: 'ex: Chine' }
+        ];
+        const getSpecs = (p) => (Array.isArray(p?.specs) ? p.specs : []).filter(sp => sp && sp.label && String(sp.value || '').trim() !== '');
+        const specFieldDef = (type, label) => (PRODUCT_TYPES[type]?.fields.find(f => f.label === label)) || COMMON_SPEC_FIELDS.find(f => f.label === label) || null;
+        const shortSpecLabel = (label) => label.replace(/\s*\(.*\)/, '');
+
+        // Aide au choix : style de tirage déduit de la résistance (valeurs indicatives)
+        const ohmHint = (ohm) => {
+            const m = String(ohm || '').replace(',', '.').match(/(\d+(\.\d+)?)/);
+            if (!m) return '';
+            const v = parseFloat(m[1]);
+            if (!(v > 0) || v > 5) return '';
+            if (v < 0.6) return 'En général : tirage aérien (DTL), grosse vapeur, puissance plus élevée.';
+            if (v <= 1.0) return 'En général : tirage intermédiaire (RDL).';
+            return 'En général : tirage serré (MTL), proche de la cigarette, faible puissance.';
+        };
+
+        // Filtres et tri proposés aux clients
+        const DEFAULT_FILTERS = { sort: '', brand: '', type: '', nic: '', vol: '', inStock: false };
+        const minPrice = (p) => { const prices = p.variants.map(v => Number(v.price) || 0).filter(x => x > 0); return prices.length ? Math.min(...prices) : 0; };
+        const variantMatches = (v, f) => (!f.nic || v.nicotine_level === f.nic) && (!f.vol || v.volume_ml === f.vol);
+        const applyFilters = (list, f) => {
+            let out = list.filter(p =>
+                (!f.brand || p.brand_id === f.brand) &&
+                (!f.type || p.product_type === f.type) &&
+                ((!f.nic && !f.vol) || p.variants.some(v => variantMatches(v, f))) &&
+                (!f.inStock || p.variants.some(isInStock)));
+            if (f.sort === 'price_asc') out = out.slice().sort((a, b) => minPrice(a) - minPrice(b));
+            if (f.sort === 'price_desc') out = out.slice().sort((a, b) => minPrice(b) - minPrice(a));
+            if (f.sort === 'name') out = out.slice().sort((a, b) => a.name.localeCompare(b.name, 'fr'));
+            return out;
+        };
+
+        const DIY_VOLUMES = ['10ml', '30ml', '50ml', '100ml', '200ml', '500ml'];
         const DIY_NICOTINES = ['0mg', '3mg', '6mg'];
 
         // Tri stable des rubriques selon l'ordre d'affichage choisi par l'administrateur
@@ -251,6 +381,7 @@ const DIY_VOLUMES = ['10ml', '30ml', '50ml', '100ml', '200ml', '500ml'];
             const currentVariant = availableVariants.find(v => v.id === selectedVarId) || availableVariants[0] || {};
             const displayImage = currentVariant.image_url || product.main_image_url;
             const hasMultipleVariants = availableVariants.length > 1;
+            const specChips = getSpecs(product).slice(0, 3);
             const unavailable = !currentVariant.id || !isInStock(currentVariant);
 
             return (
@@ -266,6 +397,16 @@ const DIY_VOLUMES = ['10ml', '30ml', '50ml', '100ml', '200ml', '500ml'];
                             <h3 className="font-bold text-xs sm:text-base text-slate-100 cursor-pointer hover:text-teal-400 transition" onClick={() => onOpen(product.id)}>{product.name}</h3>
                             {product.short_description && (
                                 <p className="text-[11px] sm:text-xs text-slate-400 line-clamp-2 leading-relaxed">{product.short_description}</p>
+                            )}
+
+                            {specChips.length > 0 && (
+                                <div className="flex flex-wrap gap-1">
+                                    {specChips.map((sp, i) => (
+                                        <span key={i} className="text-[9px] sm:text-[10px] bg-slate-950 text-slate-300 border border-slate-800 px-2 py-0.5 rounded-md font-semibold">
+                                            <span className="text-slate-500">{shortSpecLabel(sp.label)} : </span>{sp.value}
+                                        </span>
+                                    ))}
+                                </div>
                             )}
 
                             {hasMultipleVariants ? (
@@ -312,6 +453,8 @@ const DIY_VOLUMES = ['10ml', '30ml', '50ml', '100ml', '200ml', '500ml'];
             const displayImage = currentVariant.image_url || product.main_image_url;
             const unavailable = !currentVariant.id || !isInStock(currentVariant);
             const currentFlavor = getFlavor(product, currentVariant);
+            const specList = getSpecs(product);
+            const typeLabel = PRODUCT_TYPES[product.product_type]?.label;
 
             return (
                 <div className="fixed inset-0 bg-slate-950/85 backdrop-blur-md z-50 flex items-center justify-center p-4" onClick={onClose}>
@@ -357,6 +500,7 @@ const DIY_VOLUMES = ['10ml', '30ml', '50ml', '100ml', '200ml', '500ml'];
                                         <div className="text-xs bg-slate-950 border border-slate-800 px-3 py-1 rounded-xl">
                                             <span className="text-slate-400 font-bold">Résistance : </span>
                                             <span className="text-emerald-300 font-extrabold">{currentVariant.ohm_value}</span>
+                                            {ohmHint(currentVariant.ohm_value) && <span className="block text-[10px] text-slate-400 font-normal mt-0.5">{ohmHint(currentVariant.ohm_value)}</span>}
                                         </div>
                                     )}
                                     {isSet(currentVariant.color_finish) && (
@@ -373,6 +517,27 @@ const DIY_VOLUMES = ['10ml', '30ml', '50ml', '100ml', '200ml', '500ml'];
                             <div className="space-y-1.5">
                                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Choisir une déclinaison :</span>
                                 <VariantSelector variants={availableVariants} currentId={currentVariant.id} onSelect={(id) => onSelectVariant(product.id, id)} size="md" />
+                            </div>
+                        )}
+
+                        {(typeLabel || specList.length > 0) && (
+                            <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 space-y-2">
+                                <div className="flex items-center justify-between gap-2">
+                                    <h4 className="text-xs font-black uppercase text-indigo-400 tracking-wider">Caractéristiques</h4>
+                                    {typeLabel && <span className="text-[10px] bg-indigo-500/10 text-indigo-300 border border-indigo-500/30 px-2 py-0.5 rounded-full font-bold">{typeLabel}</span>}
+                                </div>
+                                {specList.length > 0 && (
+                                    <table className="w-full text-xs">
+                                        <tbody className="divide-y divide-slate-800/60">
+                                            {specList.map((sp, i) => (
+                                                <tr key={i}>
+                                                    <td className="py-1.5 pr-3 text-slate-400 font-bold align-top">{sp.label}</td>
+                                                    <td className="py-1.5 text-slate-100 font-semibold text-right">{sp.value}</td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                )}
                             </div>
                         )}
 
@@ -405,6 +570,59 @@ const DIY_VOLUMES = ['10ml', '30ml', '50ml', '100ml', '200ml', '500ml'];
                             </div>
                         </div>
                     </div>
+                </div>
+            );
+        }
+
+        function FilterBar({ list, brands, filters, onChange }) {
+            const brandIds = [...new Set(list.map(p => p.brand_id).filter(Boolean))].filter(id => brands.some(b => b.id === id));
+            const types = [...new Set(list.map(p => p.product_type).filter(t => t && PRODUCT_TYPES[t]))];
+            const uniq = (key) => [...new Set(list.flatMap(p => p.variants.map(v => v[key])).filter(isSet))]
+                .sort((a, b) => (parseFloat(a) || 0) - (parseFloat(b) || 0));
+            const nics = uniq('nicotine_level');
+            const vols = uniq('volume_ml');
+            const active = filters.brand || filters.type || filters.nic || filters.vol || filters.inStock || filters.sort;
+            const sel = "bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-teal-500";
+            if (list.length < 2) return null;
+            return (
+                <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-3 flex flex-wrap items-center gap-2">
+                    <select value={filters.sort} onChange={e => onChange({ ...filters, sort: e.target.value })} className={sel}>
+                        <option value="">Trier : par défaut</option>
+                        <option value="price_asc">Prix croissant</option>
+                        <option value="price_desc">Prix décroissant</option>
+                        <option value="name">Nom A → Z</option>
+                    </select>
+                    {brandIds.length > 1 && (
+                        <select value={filters.brand} onChange={e => onChange({ ...filters, brand: e.target.value })} className={sel}>
+                            <option value="">Toutes les marques</option>
+                            {brandIds.map(id => <option key={id} value={id}>{brands.find(b => b.id === id).name}</option>)}
+                        </select>
+                    )}
+                    {types.length > 1 && (
+                        <select value={filters.type} onChange={e => onChange({ ...filters, type: e.target.value })} className={sel}>
+                            <option value="">Tous les types</option>
+                            {types.map(t => <option key={t} value={t}>{PRODUCT_TYPES[t].label}</option>)}
+                        </select>
+                    )}
+                    {nics.length > 0 && (
+                        <select value={filters.nic} onChange={e => onChange({ ...filters, nic: e.target.value })} className={sel}>
+                            <option value="">Toute nicotine</option>
+                            {nics.map(n => <option key={n} value={n}>{n}</option>)}
+                        </select>
+                    )}
+                    {vols.length > 0 && (
+                        <select value={filters.vol} onChange={e => onChange({ ...filters, vol: e.target.value })} className={sel}>
+                            <option value="">Tous volumes</option>
+                            {vols.map(v => <option key={v} value={v}>{v}</option>)}
+                        </select>
+                    )}
+                    <label className="flex items-center space-x-1.5 text-xs text-slate-300 cursor-pointer px-1">
+                        <input type="checkbox" checked={filters.inStock} onChange={e => onChange({ ...filters, inStock: e.target.checked })} className="accent-teal-500" />
+                        <span>En stock</span>
+                    </label>
+                    {active && (
+                        <button onClick={() => onChange(DEFAULT_FILTERS)} className="px-3 py-2 text-xs font-bold text-rose-400 hover:text-rose-300">Réinitialiser</button>
+                    )}
                 </div>
             );
         }
@@ -488,6 +706,7 @@ const DIY_VOLUMES = ['10ml', '30ml', '50ml', '100ml', '200ml', '500ml'];
             const [selectedBrandId, setSelectedBrandId] = useState(null);
 
             const [searchQuery, setSearchQuery] = useState('');
+            const [filters, setFilters] = useState(DEFAULT_FILTERS);
             const [showCartModal, setShowCartModal] = useState(false);
             const [selectedProductId, setSelectedProductId] = useState(null);
             const [isLoading, setIsLoading] = useState(true);
@@ -568,6 +787,7 @@ const DIY_VOLUMES = ['10ml', '30ml', '50ml', '100ml', '200ml', '500ml'];
             useEffect(() => {
                 const handlePopState = (event) => {
                     setSelectedProductId(null);
+                    setFilters(DEFAULT_FILTERS);
                     if (event.state) {
                         setCurrentView(event.state.view || 'home');
                         setSelectedCategoryId(event.state.categoryId || null);
@@ -586,6 +806,7 @@ const DIY_VOLUMES = ['10ml', '30ml', '50ml', '100ml', '200ml', '500ml'];
 
             const navigateTo = (view, catId = null, brandId = null, query = '') => {
                 window.history.pushState({ view, categoryId: catId, brandId, searchQuery: query }, '', `#${view}`);
+                setFilters(DEFAULT_FILTERS);
                 setSelectedProductId(null);
                 setCurrentView(view);
                 setSelectedCategoryId(catId);
@@ -780,6 +1001,17 @@ const DIY_VOLUMES = ['10ml', '30ml', '50ml', '100ml', '200ml', '500ml'];
                 setDiyUsePreset(false);
             };
 
+            const changeProductType = (type) => {
+                setNewProduct(prev => {
+                    const hasValues = (prev.specs || []).some(sp => String(sp.value || '').trim() !== '');
+                    const template = PRODUCT_TYPES[type]?.fields.map(f => ({ label: f.label, value: '' })) || [];
+                    return { ...prev, product_type: type, specs: hasValues ? prev.specs : template };
+                });
+            };
+            const addSpecRow = (label = '') => setNewProduct(prev => ({ ...prev, specs: [...(prev.specs || []), { label, value: '' }] }));
+            const updateSpecRow = (i, key, value) => setNewProduct(prev => ({ ...prev, specs: prev.specs.map((sp, n) => n === i ? { ...sp, [key]: value } : sp) }));
+            const removeSpecRow = (i) => setNewProduct(prev => ({ ...prev, specs: prev.specs.filter((_, n) => n !== i) }));
+
             const handleLocalImageUpload = async (e) => {
                 const file = e.target.files[0];
                 if (file) {
@@ -879,11 +1111,15 @@ const DIY_VOLUMES = ['10ml', '30ml', '50ml', '100ml', '200ml', '500ml'];
                     category_id: newProduct.category_id || null,
                     short_description: newProduct.short_description || '',
                     box_content: newProduct.box_content || '',
+                    product_type: newProduct.product_type || null,
+                    specs: (newProduct.specs || [])
+                        .map(sp => ({ label: String(sp.label || '').trim(), value: String(sp.value || '').trim() }))
+                        .filter(sp => sp.label && sp.value),
                     main_image_url: newProduct.main_image_url
                 };
 
                 const { error: pError } = await supabaseClient.from('products').upsert([productPayload]);
-                if (pError) return alert('Erreur produit : ' + pError.message);
+                if (pError) return alert('Erreur produit : ' + pError.message + (/specs|product_type/.test(pError.message) ? "\n\nIl manque les colonnes 'product_type' et 'specs' dans Supabase (voir le SQL fourni)." : ''));
 
                 const stamp = Date.now().toString(36);
                 const formattedVariants = variantsList.map((v, i) => ({
@@ -926,6 +1162,8 @@ const DIY_VOLUMES = ['10ml', '30ml', '50ml', '100ml', '200ml', '500ml'];
                     category_id: prod.category_id || '',
                     short_description: prod.short_description || '',
                     box_content: prod.box_content || '',
+                    product_type: prod.product_type || '',
+                    specs: Array.isArray(prod.specs) ? prod.specs.map(sp => ({ label: sp.label || '', value: sp.value || '' })) : [],
                     main_image_url: prod.main_image_url
                 });
                 setVariantsList(prod.variants.length > 0 ? prod.variants.map(v => ({
@@ -1307,6 +1545,8 @@ const DIY_VOLUMES = ['10ml', '30ml', '50ml', '100ml', '200ml', '500ml'];
                     p.flavor,
                     p.short_description,
                     p.box_content,
+                    PRODUCT_TYPES[p.product_type]?.label || '',
+                    getSpecs(p).map(sp => `${sp.label} ${sp.value}`).join(' '),
                     brand ? brand.name : '',
                     category ? category.name : '',
                     ...p.variants.map(v => `${v.flavor} ${v.nicotine_level} ${v.volume_ml} ${v.color_finish} ${v.ohm_value}`)
@@ -1314,13 +1554,19 @@ const DIY_VOLUMES = ['10ml', '30ml', '50ml', '100ml', '200ml', '500ml'];
                 return queryWords.every(word => searchableText.includes(word));
             });
 
+            const preferredVariantId = (p) => {
+                if (!filters.nic && !filters.vol) return undefined;
+                const matches = p.variants.filter(v => variantMatches(v, filters));
+                return (matches.find(isInStock) || matches[0])?.id;
+            };
+
             const renderCard = (product) => (
                 <ProductCard
                     key={product.id}
                     product={product}
                     brand={brands.find(b => b.id === product.brand_id)}
                     hideOutOfStock={hideOutOfStock}
-                    selectedVarId={selectedVariantByProduct[product.id]}
+                    selectedVarId={selectedVariantByProduct[product.id] || preferredVariantId(product)}
                     onSelectVariant={onSelectVariant}
                     qty={quantityByProduct[product.id] || 1}
                     onQty={onQty}
@@ -1560,8 +1806,11 @@ const DIY_VOLUMES = ['10ml', '30ml', '50ml', '100ml', '200ml', '500ml'];
                                                 <button onClick={() => navigateTo('home')} className="px-4 py-2 bg-teal-500 text-black font-bold text-xs rounded-xl">Retour à l'accueil</button>
                                             </div>
                                         ) : (
-                                            <div className={gridClass}>
-                                                {searchResults.map(renderCard)}
+                                            <div className="space-y-5">
+                                                <FilterBar list={searchResults} brands={brands} filters={filters} onChange={setFilters} />
+                                                {applyFilters(searchResults, filters).length === 0
+                                                    ? <p className="text-center text-sm text-slate-500 py-8">Aucun produit ne correspond à ces filtres.</p>
+                                                    : <div className={gridClass}>{applyFilters(searchResults, filters).map(renderCard)}</div>}
                                             </div>
                                         )}
                                     </div>
@@ -1614,11 +1863,17 @@ const DIY_VOLUMES = ['10ml', '30ml', '50ml', '100ml', '200ml', '500ml'];
 
                                         {(() => {
                                             const validCategoryIds = selectedCategoryId ? getAllChildCategoryIds(selectedCategoryId) : null;
-                                            const list = products.filter(p => isVisible(p) && (!validCategoryIds || validCategoryIds.includes(p.category_id)));
-                                            return list.length === 0 ? (
+                                            const rawList = products.filter(p => isVisible(p) && (!validCategoryIds || validCategoryIds.includes(p.category_id)));
+                                            const list = applyFilters(rawList, filters);
+                                            return rawList.length === 0 ? (
                                                 <p className="text-center text-sm text-slate-500 py-12">Aucun produit dans ce dossier pour le moment.</p>
                                             ) : (
-                                                <div className={gridClass}>{list.map(renderCard)}</div>
+                                                <div className="space-y-5">
+                                                    <FilterBar list={rawList} brands={brands} filters={filters} onChange={setFilters} />
+                                                    {list.length === 0
+                                                        ? <p className="text-center text-sm text-slate-500 py-8">Aucun produit ne correspond à ces filtres.</p>
+                                                        : <div className={gridClass}>{list.map(renderCard)}</div>}
+                                                </div>
                                             );
                                         })()}
                                     </div>
@@ -1639,11 +1894,17 @@ const DIY_VOLUMES = ['10ml', '30ml', '50ml', '100ml', '200ml', '500ml'];
                                         </div>
 
                                         {(() => {
-                                            const list = products.filter(p => p.brand_id === selectedBrandId && isVisible(p));
-                                            return list.length === 0 ? (
+                                            const rawList = products.filter(p => p.brand_id === selectedBrandId && isVisible(p));
+                                            const list = applyFilters(rawList, filters);
+                                            return rawList.length === 0 ? (
                                                 <p className="text-center text-sm text-slate-500 py-12">Aucun produit pour cette marque pour le moment.</p>
                                             ) : (
-                                                <div className={gridClass}>{list.map(renderCard)}</div>
+                                                <div className="space-y-5">
+                                                    <FilterBar list={rawList} brands={brands} filters={filters} onChange={setFilters} />
+                                                    {list.length === 0
+                                                        ? <p className="text-center text-sm text-slate-500 py-8">Aucun produit ne correspond à ces filtres.</p>
+                                                        : <div className={gridClass}>{list.map(renderCard)}</div>}
+                                                </div>
                                             );
                                         })()}
                                     </div>
@@ -1901,6 +2162,9 @@ const DIY_VOLUMES = ['10ml', '30ml', '50ml', '100ml', '200ml', '500ml'];
                                                 {editingProductId ? 'Modifier le Produit' : 'Ajouter un Produit'}
                                             </h2>
                                             <form onSubmit={handleSaveProduct} className="space-y-4">
+                                                <datalist id="ohm-list">
+                                                    {['0.15Ω', '0.2Ω', '0.3Ω', '0.4Ω', '0.6Ω', '0.8Ω', '1.0Ω', '1.2Ω', '1.4Ω', '1.6Ω'].map(o => <option key={o} value={o} />)}
+                                                </datalist>
                                                 <div>
                                                     <label className="text-xs text-slate-400 font-bold uppercase">Nom du Produit *</label>
                                                     <input type="text" value={newProduct.name} onChange={e => setNewProduct({ ...newProduct, name: e.target.value })} placeholder="ex: DIY A&L Ragnarok" className="w-full mt-1 bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-sm" required />
@@ -1945,6 +2209,46 @@ const DIY_VOLUMES = ['10ml', '30ml', '50ml', '100ml', '200ml', '500ml'];
                                                     <label className="text-xs text-slate-400 font-bold uppercase">Photo Principale</label>
                                                     <input type="file" accept="image/*" onChange={handleLocalImageUpload} className="w-full mt-1 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-400" />
                                                     {newProduct.main_image_url && <img src={newProduct.main_image_url} alt="Aperçu" className="w-16 h-16 object-contain rounded-xl mt-2 border border-slate-800 bg-white p-1" />}
+                                                </div>
+
+                                                {/* CARACTÉRISTIQUES TECHNIQUES */}
+                                                <div className="bg-slate-950 border border-indigo-500/30 p-4 rounded-2xl space-y-3">
+                                                    <h3 className="text-xs font-black uppercase text-indigo-400 tracking-wider">🔧 Caractéristiques techniques</h3>
+                                                    <p className="text-[10px] text-slate-400">Choisissez le type de produit : les champs utiles (batterie, puissance, résistance...) apparaissent. Les champs laissés vides ne sont pas affichés aux clients.</p>
+                                                    <select value={newProduct.product_type || ''} onChange={e => changeProductType(e.target.value)} className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-sm">
+                                                        <option value="">-- Type de produit (optionnel) --</option>
+                                                        {Object.entries(PRODUCT_TYPES).map(([key, t]) => <option key={key} value={key}>{t.label}</option>)}
+                                                    </select>
+
+                                                    <div className="space-y-2">
+                                                        {(newProduct.specs || []).map((sp, i) => {
+                                                            const def = specFieldDef(newProduct.product_type, sp.label);
+                                                            return (
+                                                                <div key={i} className="flex gap-2 items-center">
+                                                                    <input type="text" value={sp.label} onChange={e => updateSpecRow(i, 'label', e.target.value)} placeholder="Caractéristique" className="w-2/5 bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs font-bold" />
+                                                                    <input type="text" value={sp.value} list={def?.options ? `spec-opts-${i}` : undefined} onChange={e => updateSpecRow(i, 'value', e.target.value)} placeholder={def?.placeholder || (def?.options ? 'Choisir ou saisir' : 'Valeur')} className="flex-1 bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs text-teal-400 font-bold" />
+                                                                    {def?.options && <datalist id={`spec-opts-${i}`}>{def.options.map(o => <option key={o} value={o} />)}</datalist>}
+                                                                    <button type="button" onClick={() => removeSpecRow(i)} className="text-rose-400 text-xs font-bold px-1">✕</button>
+                                                                </div>
+                                                            );
+                                                        })}
+                                                    </div>
+
+                                                    {(() => {
+                                                        const used = new Set((newProduct.specs || []).map(sp => sp.label));
+                                                        const suggestions = [...(PRODUCT_TYPES[newProduct.product_type]?.fields || []), ...COMMON_SPEC_FIELDS].filter(f => !used.has(f.label));
+                                                        return suggestions.length > 0 ? (
+                                                            <div className="space-y-1">
+                                                                <span className="text-[10px] font-bold text-slate-400 uppercase block">Ajouter un champ :</span>
+                                                                <div className="flex flex-wrap gap-1">
+                                                                    {suggestions.map(f => (
+                                                                        <button key={f.label} type="button" onClick={() => addSpecRow(f.label)} className="text-[10px] bg-slate-900 border border-slate-800 hover:border-teal-500 text-slate-300 px-2 py-1 rounded-lg font-semibold transition">+ {f.label}</button>
+                                                                    ))}
+                                                                </div>
+                                                            </div>
+                                                        ) : null;
+                                                    })()}
+                                                    <button type="button" onClick={() => addSpecRow('')} className="px-3 py-1.5 bg-teal-500/10 text-teal-400 border border-teal-500/30 rounded-lg text-[10px] font-bold">+ Caractéristique personnalisée</button>
                                                 </div>
 
                                                 {/* GÉNÉRATEUR RAPIDE DE MATRICE DIY / DÉCLINAISONS */}
@@ -2072,6 +2376,10 @@ const DIY_VOLUMES = ['10ml', '30ml', '50ml', '100ml', '200ml', '500ml'];
                                                                         <label className="text-[10px] text-slate-400">Coloris</label>
                                                                         <input type="text" value={v.color_finish === '-' ? '' : v.color_finish} onChange={e => handleVariantChange(v.id, 'color_finish', e.target.value || '-')} placeholder="Optionnel" className="w-full bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs" />
                                                                     </div>
+                                                                </div>
+                                                                <div>
+                                                                    <label className="text-[10px] text-slate-400">Résistance (Ω) : coils, atomiseurs</label>
+                                                                    <input type="text" list="ohm-list" value={v.ohm_value === '-' ? '' : v.ohm_value} onChange={e => handleVariantChange(v.id, 'ohm_value', e.target.value || '-')} placeholder="ex: 0.4Ω (optionnel)" className="w-full bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs" />
                                                                 </div>
                                                                 <div className="flex items-center space-x-2 pt-1">
                                                                     <input
@@ -2465,6 +2773,7 @@ const DIY_VOLUMES = ['10ml', '30ml', '50ml', '100ml', '200ml', '500ml'];
 
                     <footer className="border-t border-slate-800/80 bg-slate-900/40 py-6 text-center text-xs text-slate-500 mt-16 flex flex-col items-center justify-center space-y-2">
                         <p>Esigara.mg — Solutions E-commerce & Vape à Madagascar.</p>
+                        <p className="text-[10px] text-slate-600 max-w-md px-4">Produits réservés aux adultes. La nicotine crée une forte dépendance.</p>
                         <button onClick={() => adminUnlocked ? navigateTo('admin') : setShowAuthModal(true)} className="text-[10px] text-slate-700 hover:text-slate-400 transition">
                             Espace d'Administration
                         </button>
